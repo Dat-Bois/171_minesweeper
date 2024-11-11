@@ -15,34 +15,36 @@
 from AI import AI
 from Action import Action
 
-from typing import Dict, Tuple
+from typing import Dict, Tuple, TypeVar, Generic
 
 UNCOVER = AI.Action.UNCOVER
 FLAG = AI.Action.FLAG
 UNFLAG = AI.Action.UNFLAG
 LEAVE = AI.Action.LEAVE
 
-class Queue:
+T = TypeVar('T')
+
+class Queue(Generic[T]):
 	'''
 	A basic queue data structure.
 	'''
 	def __init__(self):
 		self.queue = []
 	
-	def put(self, item):
+	def put(self, item : T):
 		self.queue.append(item)
 	
-	def get(self):
+	def pop(self) -> T | None:
 		if len(self.queue) == 0:
 			return None
 		return self.queue.pop(0)
 	
-	def view(self):
+	def peek(self) -> T | None:
 		if len(self.queue) == 0:
 			return None
 		return self.queue[0]
 	
-	def __len__(self):
+	def __len__(self) -> int:
 		return len(self.queue)
 
 
@@ -127,6 +129,10 @@ class MyAI( AI ):
 					adj_cells.append((row + i, col + j))
 		return adj_cells
 		
+	def getAdjUnexplored(self, pos: tuple) -> list:
+		pass
+
+
 	def getAction(self, number: int) -> Action:
 		'''
 		This function is called repeatedly until the game ends.
@@ -145,39 +151,45 @@ class MyAI( AI ):
 		1. If number is 0, uncover all adjacent cells
 		2. If a cell is explored and unexplored cells are equal to the number of mines, flag all unexplored cells
 		3. If a cell is explored and the number of flags adjacent to the cell is equal to the number of mines, uncover all unexplored cells
+		
+		In a bit more detail:
+		1. We start from a safe place.
+		2. Explore all surrounding 9 cells.
+		3. If there are any 0's continue expanding those cells and expanding
+		4. Once all 0 cells are expanded, go to the cell with the largest number.
+		5. Check if the amount of unexplored cells around it is equal to the number.
+			5b. A cell is considered explored if it is flagged as a bomb or if it simply explored.
+			5c. If it is, flag it as a bomb.
+		6. Check if the the number of flagged cells around a cell is equal to its number.
+			6b. If it is, explore all the cells around it which are not flagged.
+		7. Move to the next largest number. (Keep all explored cells in a priority queue?)
+		8. Once the area surrounding a cell is fully explored (meaning only flagged or explored cells around it) 
+			set a flag to True for the cell.
+
+		This requires:
+			 - A list with all explored cells (position, value, flagged, fully explored)
+			 - A priority queue by value for explored cells to check
+			 	- A cell is only popped from the list when it is fully explored
+					(meaning all cells around it are explored or it is flagged)
+
+
 		'''
-		if number != -1:
-			cell = self.to_explore.get()
-			self.explored[cell.pos] = cell.toCS(number)
+		cell = self.to_explore.pop()
+		self.explored[cell.pos] = cell.toCS(number)
+		adj_cells = self.getAdjCells(cell.pos)
 
-			if number == 0:
-				for adj_cell in self.getAdjCells(cell.pos):
-					if adj_cell not in self.explored:
-						self.to_explore.put(PeformAction(UNCOVER, adj_cell))
-		# 	else:
-		# 		adj_cells = self.getAdjCells(cell.pos)
-		# 		flagged = 0
-		# 		for adj_cell in adj_cells:
-		# 			if adj_cell in self.explored and self.explored[adj_cell].flagged:
-		# 				flagged += 1
-		# 		if flagged == number:
-		# 			for adj_cell in adj_cells:
-		# 				if adj_cell not in self.explored:
-		# 					self.to_explore.put(PeformAction(FLAG, adj_cell))
-		# 		elif len(adj_cells) - flagged == number:
-		# 			for adj_cell in adj_cells:
-		# 				if adj_cell not in self.explored:
-		# 					self.to_explore.put(PeformAction(UNCOVER, adj_cell))
-		# else:
-		# 	cell = self.to_explore.get()
-		# 	self.explored[cell.pos] = cell.toCS(-1)
+		if number == 0:
+			for adj_cell in adj_cells:
+				if adj_cell not in self.explored:
+					self.to_explore.put(PeformAction(UNCOVER, adj_cell))
+		
 
-		next_move : PeformAction = self.to_explore.view()
+		next_move : PeformAction = self.to_explore.peek()
 		if next_move is None:
 			return Action(LEAVE, 0, 0)
 		while next_move.action == UNCOVER and next_move in self.explored:
-			self.to_explore.get()
-			next_move = self.to_explore.view()
+			self.to_explore.pop()
+			next_move = self.to_explore.peek()
 			if next_move is None:
 				return Action(LEAVE, 0, 0)
 		return next_move.toAction()
