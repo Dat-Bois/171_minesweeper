@@ -15,105 +15,106 @@
 from AI import AI
 from Action import Action
 
-from typing import Dict, Tuple, TypeVar, Generic
+import heapq
+from typing import Dict, Tuple, TypeVar, Generic, Any
 
 UNCOVER = AI.Action.UNCOVER
 FLAG = AI.Action.FLAG
 UNFLAG = AI.Action.UNFLAG
 LEAVE = AI.Action.LEAVE
 
-T = TypeVar('T')
 
-class Queue(Generic[T]):
-	'''
-	A basic queue data structure.
-	'''
+class Cell:
+	def __init__(self, pos: Tuple[int, int], value: int = -1, flagged: bool = False, fully_explored: bool = False):
+		self.pos = pos
+		self.value = value
+		self.flagged = flagged
+		self.fully_explored = fully_explored
+
+	def __lt__(self, other):
+		# Values less than 0 get popped first
+		# Then the larger values get popped if all > 0
+		# So it would be -2, -1, 4, 3, 2, 1
+		if self.value < 0:
+			return self.value < other.value
+		return self.value > other.value
+
+	def __eq__(self, other):
+		if isinstance(other, tuple):
+			return self.pos == other
+		return self.value == other.value
+
+	def __repr__(self):
+		return f'Cell({self.pos}, {self.value})\n'
+	
+	def __str__(self):
+		return self.__repr__()
+	
+	def __hash__(self):
+		return hash(self.pos)
+
+
+T = TypeVar('T')
+class PriorityQueue(Generic[T]):
+
 	def __init__(self):
 		self.queue = []
+		self.queue2 = []
 	
-	def put(self, item : T):
-		self.queue.append(item)
-	
-	def pop(self) -> T | None:
-		if len(self.queue) == 0:
+	def reset(self):
+		self.queue.extend(self.queue2)
+		self.queue2 = []
+		heapq.heapify(self.queue)
+
+	def push(self, item: T):
+		heapq.heappush(self.queue, item)
+
+	def pop(self) -> T:
+		if self.__len__() == 0:
 			return None
-		return self.queue.pop(0)
-	
-	def peek(self) -> T | None:
 		if len(self.queue) == 0:
+			self.queue, self.queue2 = self.queue2, self.queue
+		value = heapq.heappop(self.queue)
+		heapq.heappush(self.queue2, value)
+		return value
+	
+	def peek(self) -> T:
+		if self.__len__() == 0:
 			return None
 		return self.queue[0]
-	
-	def __len__(self) -> int:
-		return len(self.queue)
 
+	def remove(self, item: T):
+		if item in self.queue:
+			self.queue.remove(item)
+			heapq.heapify(self.queue)
+		elif item in self.queue2:
+			self.queue2.remove(item)
+			heapq.heapify(self.queue2)
 
-class PeformAction:
-	'''
-	Contains the action to be performed, the position of the cell, and the value.
-	'''
-	def __init__(self, action: AI.Action, pos: tuple, value: int = None):
-		self.action = action
-		self.pos = pos
-		self.value = value
+	def __len__(self):
+		return len(self.queue) + len(self.queue2)
 
-	def toAction(self) -> Action:
-		return Action(self.action, self.pos[0], self.pos[1])
-
-	def toCS(self, value) -> 'CellStore':
-		'''
-		A value of -1 indicates that the cell is flagged.
-		'''
-		return CellStore(self.pos, value)
+	def __repr__(self):
+		return str(self.queue) + str(self.queue2)
 
 	def __str__(self):
-		return f'Action: {self.action}, Position: {self.pos}, Value: {self.value}'
+		return self.__repr__()
 	
-	def __repr__(self):
-		return self.__str__()
-	
-	def __hash__(self) -> int:
-		return hash(self.pos)
-
-	def __eq__(self, other : tuple) -> bool:
-		if isinstance(other, tuple):
-			return self.pos == other
-		return self.pos == other.pos
-	
-class CellStore:
-	'''
-	Stores the position of the cell and the value of the cell.
-	'''
-	def __init__(self, pos: tuple, value: int):
-		self.pos = pos
-		self.value = value
-		self.flagged = value == -1
-
-	def __str__(self):
-		return f'Position: {self.pos}, Value: {self.value}'
-	
-	def __repr__(self):
-		return self.__str__()
-	
-	def __hash__(self) -> int:
-		return hash(self.pos)
-	
-	def __eq__(self, other) -> bool:
-		if isinstance(other, tuple):
-			return self.pos == other
-		return self.pos == other.pos
+	def __contains__(self, item: T):
+		return item in self.queue or item in self.queue2
 
 class MyAI( AI ):
 
 	def __init__(self, rowDimension, colDimension, totalMines, startX, startY):
 		self.grid_dim = (rowDimension, colDimension)
 		self.totalMines = totalMines
-		self.explored : Dict[Tuple, CellStore] = {}
-		self.to_explore : Queue[PeformAction] = Queue()
-		self.to_explore.put(PeformAction(UNCOVER, (startX, startY)))
-		pass
+		self.explored_cells : Dict[tuple, Cell] = {}
+		self.priority_queue = PriorityQueue[Cell]()
+		self.pos = (startX, startY)
 
-	
+		self.flags = 0
+
+		
 	def getAdjCells(self, pos: tuple) -> list:
 		'''
 		Returns a list of adjacent cells to the given position.
@@ -130,8 +131,29 @@ class MyAI( AI ):
 		return adj_cells
 		
 	def getAdjUnexplored(self, pos: tuple) -> list:
-		pass
-
+		'''
+		Returns a list of adjacent unexplored cells to the given position.
+		The cells are 0-indexed.
+		'''
+		cells = self.getAdjCells(pos)
+		unexplored = []
+		for cell in cells:
+			if cell not in self.explored_cells:
+				unexplored.append(cell)
+		return unexplored
+	
+	def getAdjFlagged(self, pos: tuple) -> list:
+		'''
+		Returns a list of adjacent flagged cells to the given position.
+		The cells are 0-indexed.
+		'''
+		cells = self.getAdjCells(pos)
+		flagged = []
+		for cell in cells:
+			if cell in self.explored_cells:
+				if self.explored_cells[cell].flagged:
+					flagged.append(cell)
+		return flagged
 
 	def getAction(self, number: int) -> Action:
 		'''
@@ -164,38 +186,85 @@ class MyAI( AI ):
 			6b. If it is, explore all the cells around it which are not flagged.
 		7. Move to the next largest number. (Keep all explored cells in a priority queue?)
 		8. Once the area surrounding a cell is fully explored (meaning only flagged or explored cells around it) 
-			set a flag to True for the cell.
+			set a flag to True for the cell and remove it from the queue.
 
 		This requires:
-			 - A list with all explored cells (position, value, flagged, fully explored)
-			 - A priority queue by value for explored cells to check
-			 	- A cell is only popped from the list when it is fully explored
-					(meaning all cells around it are explored or it is flagged)
-
+			 - A dictionary with all explored cells (position, value, flagged, fully explored)
+			 - A rotating priority queue by value for explored cells to check
+			 	- This is two priority queues, when moving through we pop to the other queue.
 
 		'''
-		cell = self.to_explore.pop()
-		self.explored[cell.pos] = cell.toCS(number)
-		adj_cells = self.getAdjCells(cell.pos)
-
 		if number == 0:
-			for adj_cell in adj_cells:
-				if adj_cell not in self.explored:
-					self.to_explore.put(PeformAction(UNCOVER, adj_cell))
+			# This means we just uncovered a completely safe cell.
+			self.priority_queue.remove(Cell(self.pos))
+			self.explored_cells[self.pos] = Cell(self.pos, number, False, True)
+			adj_cells = self.getAdjUnexplored(self.pos)
+			for cell in adj_cells:
+				if cell not in self.priority_queue:
+					self.priority_queue.push(Cell(cell))
+		elif number == -1:
+			# This means we just flagged the previous cell.
+			self.priority_queue.remove(Cell(self.pos))
+			self.explored_cells[self.pos] = Cell(self.pos, -2, True, False)
+			self.flags += 1
+			if self.flags == self.totalMines:
+				return Action(LEAVE)
+		else:
+			# This means we just uncovered a cell with a number.
+			temp_cell = Cell(self.pos, number, False, False)
+			adj_cells = self.getAdjUnexplored(self.pos)
+			if len(adj_cells) == 0:
+				temp_cell.fully_explored = True
+			self.explored_cells[self.pos] = temp_cell
+			self.priority_queue.push(temp_cell)
+			
 		
+		self.priority_queue.reset()
+		# Now go through the priority queue and check if we can flag or uncover any cells.
+		while len(self.priority_queue) > 0:
+			cell = self.priority_queue.pop()
+			# If the vell value is -2 it needs to be flagged
+			if cell.value == -2:
+				self.pos = cell.pos
+				return Action(FLAG, cell.pos[0], cell.pos[1])
+			# If the cell value is -1 it needs to be explored unless it is already explored
+			if cell.value == -1:
+				if cell.pos not in self.explored_cells:
+					self.pos = cell.pos
+					return Action(UNCOVER, cell.pos[0], cell.pos[1])
+			# If the cell is fully explored, we can remove it from the queue
+			if cell.fully_explored:
+				self.priority_queue.remove(cell)
+				continue
 
-		next_move : PeformAction = self.to_explore.peek()
-		if next_move is None:
-			return Action(LEAVE, 0, 0)
-		while next_move.action == UNCOVER and next_move in self.explored:
-			self.to_explore.pop()
-			next_move = self.to_explore.peek()
-			if next_move is None:
-				return Action(LEAVE, 0, 0)
-		return next_move.toAction()
+			# If we are here then this is a cell with a number
+
+			# Check if we can flag any cells
+			adj_cells = self.getAdjUnexplored(cell.pos)
+			# print("Checked cell", cell.pos, "with value", cell.value, "and found", adj_cells)
+			if cell.value == len(adj_cells):
+				for adj_cell in adj_cells:
+					self.priority_queue.push(Cell(adj_cell, -2))
+
+			# Check if we can uncover any cells
+			flagged_cells = self.getAdjFlagged(cell.pos)
+			if cell.value == len(flagged_cells):
+				for adj_cell in self.getAdjUnexplored(cell.pos):
+					self.priority_queue.push(Cell(adj_cell))
+
+		# If we are here, then we have no more cells to explore or flag.
+		# So we leave the game.
+		return Action(LEAVE)
 
 
 if __name__ == '__main__':
-	test = MyAI(5, 5, 5, 1, 1)
-	print(test.getAdjCells((2, 2)))
+	# test = MyAI(5, 5, 5, 1, 1)
+	# print(test.getAdjCells((2, 2)))
+	pq = PriorityQueue[Cell]()
+	pq.push(Cell((1, 1), 0))
+	pq.push(Cell((1, 1), 1))
+	pq.push(Cell((1, 1), 2))
+	pq.push(Cell((1, 1), 3))
+	print(pq)
+	print(pq.pop())
 	pass
