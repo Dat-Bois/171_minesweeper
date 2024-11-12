@@ -16,7 +16,9 @@ from AI import AI
 from Action import Action
 
 import heapq
+import random
 from typing import Dict, Tuple, TypeVar, Generic, Any
+
 
 UNCOVER = AI.Action.UNCOVER
 FLAG = AI.Action.FLAG
@@ -35,14 +37,23 @@ class Cell:
 		# Values less than 0 get popped first
 		# Then the larger values get popped if all > 0
 		# So it would be -2, -1, 4, 3, 2, 1
+		# Step 1: Prioritize negative values over positive values.
+		if self.value < 0 and other.value >= 0:
+			return True
+		elif self.value >= 0 and other.value < 0:
+			return False
+
+        # Step 2: When both are negative, order ascending (-2 before -1)
+        # or when both are positive, order descending (4 before 3).
 		if self.value < 0:
 			return self.value < other.value
-		return self.value > other.value
+		else:
+			return self.value > other.value
 
 	def __eq__(self, other):
 		if isinstance(other, tuple):
 			return self.pos == other
-		return self.value == other.value
+		return self.pos == other.pos
 
 	def __repr__(self):
 		return f'Cell({self.pos}, {self.value})\n'
@@ -67,6 +78,7 @@ class PriorityQueue(Generic[T]):
 		heapq.heapify(self.queue)
 
 	def push(self, item: T):
+		self.remove(item)
 		heapq.heappush(self.queue, item)
 
 	def pop(self) -> T:
@@ -92,7 +104,7 @@ class PriorityQueue(Generic[T]):
 			heapq.heapify(self.queue2)
 
 	def __len__(self):
-		return len(self.queue) + len(self.queue2)
+		return len(self.queue)
 
 	def __repr__(self):
 		return str(self.queue) + str(self.queue2)
@@ -207,8 +219,6 @@ class MyAI( AI ):
 			self.priority_queue.remove(Cell(self.pos))
 			self.explored_cells[self.pos] = Cell(self.pos, -2, True, False)
 			self.flags += 1
-			if self.flags == self.totalMines:
-				return Action(LEAVE)
 		else:
 			# This means we just uncovered a cell with a number.
 			temp_cell = Cell(self.pos, number, False, False)
@@ -218,7 +228,6 @@ class MyAI( AI ):
 			self.explored_cells[self.pos] = temp_cell
 			self.priority_queue.push(temp_cell)
 			
-		
 		self.priority_queue.reset()
 		# Now go through the priority queue and check if we can flag or uncover any cells.
 		while len(self.priority_queue) > 0:
@@ -227,11 +236,10 @@ class MyAI( AI ):
 			if cell.value == -2:
 				self.pos = cell.pos
 				return Action(FLAG, cell.pos[0], cell.pos[1])
-			# If the cell value is -1 it needs to be explored unless it is already explored
+			# If the cell value is -1 it needs to be explored
 			if cell.value == -1:
-				if cell.pos not in self.explored_cells:
-					self.pos = cell.pos
-					return Action(UNCOVER, cell.pos[0], cell.pos[1])
+				self.pos = cell.pos
+				return Action(UNCOVER, cell.pos[0], cell.pos[1])
 			# If the cell is fully explored, we can remove it from the queue
 			if cell.fully_explored:
 				self.priority_queue.remove(cell)
@@ -241,30 +249,37 @@ class MyAI( AI ):
 
 			# Check if we can flag any cells
 			adj_cells = self.getAdjUnexplored(cell.pos)
-			# print("Checked cell", cell.pos, "with value", cell.value, "and found", adj_cells)
-			if cell.value == len(adj_cells):
+			flagged_cells = self.getAdjFlagged(cell.pos)
+			if cell.value - len(flagged_cells) == len(adj_cells) and len(adj_cells) > 0:
 				for adj_cell in adj_cells:
 					self.priority_queue.push(Cell(adj_cell, -2))
 
 			# Check if we can uncover any cells
-			flagged_cells = self.getAdjFlagged(cell.pos)
 			if cell.value == len(flagged_cells):
 				for adj_cell in self.getAdjUnexplored(cell.pos):
 					self.priority_queue.push(Cell(adj_cell))
-
-		# If we are here, then we have no more cells to explore or flag.
-		# So we leave the game.
+					
+		# If we are here, then we are in a unlucky situation where we have to guess.
+		# Pick the lowest number cell with unexplored values and unncover one if its adjacent cells.
+		self.priority_queue.reset()
+		local = list(self.priority_queue.queue)
+		local = sorted(local, key=lambda x: x.value)
+		for cell in local:
+			if len(self.getAdjUnexplored(cell.pos)) > 0:
+				adj = self.getAdjUnexplored(cell.pos)
+				choice = random.choice(adj)
+				self.pos = choice
+				return Action(UNCOVER, choice[0], choice[1])
 		return Action(LEAVE)
-
-
+			
 if __name__ == '__main__':
 	# test = MyAI(5, 5, 5, 1, 1)
 	# print(test.getAdjCells((2, 2)))
 	pq = PriorityQueue[Cell]()
 	pq.push(Cell((1, 1), 0))
-	pq.push(Cell((1, 1), 1))
-	pq.push(Cell((1, 1), 2))
-	pq.push(Cell((1, 1), 3))
+	pq.push(Cell((1, 2), 1))
+	pq.push(Cell((1, 3), 2))
+	pq.push(Cell((1, 4), 0))
+	pq.push(Cell((1, 4), -1))
+	pq.push(Cell((1, 4), -2))
 	print(pq)
-	print(pq.pop())
-	pass
