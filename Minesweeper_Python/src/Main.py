@@ -156,10 +156,13 @@ def main():
 			print("Cumulative Score: " + str(sumScores))
 			total_time = sum(times)
 			sorted_times = [round(x, 3) for x in sorted(times)]
-			print(f"Average Time Per Board: {(total_time / len(times)):.3f}")
-			print(f"Best 5 Times: {sorted_times[:5]}")
-			print(f"Worst 5 Times: {sorted_times[-5:]}")
-			print(f"Total Time Taken: {total_time:.3f}")
+			if len(times) > 0:
+				print(f"Average Time Per Board: {(total_time / len(times)):.3f}")
+				print(f"Best 5 Times: {sorted_times[:5]}")
+				print(f"Worst 5 Times: {sorted_times[-5:]}")
+				print(f"Total Time Taken: {total_time:.3f}")
+			else:
+				print("No boards completed")
 			print("--------------------------------------------------")
 
 			if outputFile:
