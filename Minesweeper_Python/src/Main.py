@@ -49,6 +49,13 @@ from ManualAI import ManualAI
 from RandomAI import RandomAI
 from MyAI import MyAI
 
+import time
+
+try:
+	from tqdm import tqdm
+	tqdm_installed = True
+except ImportError:
+	tqdm_installed = False
 
 def main():
 
@@ -103,26 +110,57 @@ def main():
 			scoreBeg = 0
 			scoreInt = 0
 			scoreExp = 0
+			times = []
 			for dirpath, _, filenames in directory:
-				for filename in filenames:
-					f = os.path.join(dirpath, filename)
+				if tqdm_installed:
+					for filename in tqdm(filenames):
+						f = os.path.join(dirpath, filename)
 
-					world = World(filename=f, aiType=aiType, verbose=verbose, debug=debug)
+						world = World(filename=f, aiType=aiType, verbose=verbose, debug=debug)
 
-					score = world.run()
-					if score == 1:
-						scoreBeg += 1
-					elif score == 2:
-						scoreInt += 1
-					elif score == 3:
-						scoreExp += 1
+						start_time = time.time()
+						score = world.run()
+						if score > 0:
+							times.append(time.time() - start_time)
+						if score == 1:
+							scoreBeg += 1
+						elif score == 2:
+							scoreInt += 1
+						elif score == 3:
+							scoreExp += 1
 
-					numScores += 1
-					sumScores += score
+						numScores += 1
+						sumScores += score
+				else:
+					for filename in filenames:
+						f = os.path.join(dirpath, filename)
+
+						world = World(filename=f, aiType=aiType, verbose=verbose, debug=debug)
+
+						start_time = time.time()
+						score = world.run()
+						if score > 0:
+							times.append(time.time() - start_time)
+						if score == 1:
+							scoreBeg += 1
+						elif score == 2:
+							scoreInt += 1
+						elif score == 3:
+							scoreExp += 1
+
+						numScores += 1
+						sumScores += score
 					
 			print("---------------Your agent's results:---------------")
 			print("Beginner: {} \tIntermediate: {} \tExpert: {}".format(scoreBeg, scoreInt, scoreExp))
 			print("Cumulative Score: " + str(sumScores))
+			total_time = sum(times)
+			sorted_times = [round(x, 3) for x in sorted(times)]
+			print(f"Average Time Per Board: {(total_time / len(times)):.3f}")
+			print(f"Best 5 Times: {sorted_times[:5]}")
+			print(f"Worst 5 Times: {sorted_times[-5:]}")
+			print(f"Total Time Taken: {total_time:.3f}")
+			print("--------------------------------------------------")
 
 			if outputFile:
 				currDirectory = os.path.dirname(__file__)
