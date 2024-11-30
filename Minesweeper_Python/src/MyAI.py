@@ -30,8 +30,13 @@ class Cell:
 	def __init__(self, pos: Tuple[int, int], value: int = -1, flagged: bool = False, fully_explored: bool = False):
 		self.pos = pos
 		self.value = value
+		self.reduced_value = value
 		self.flagged = flagged
 		self.fully_explored = fully_explored
+
+	def update_rd(self):
+		if self.value > 0 and not self.flagged:
+			self.reduced_value -= 1
 
 	def __lt__(self, other):
 		# Values less than 0 get popped first
@@ -154,6 +159,18 @@ class MyAI( AI ):
 				unexplored.append(cell)
 		return unexplored
 	
+	def getAdjExplored(self, pos: tuple) -> list:
+		'''
+		Returns a list of adjacent explored cells to the given position.
+		The cells are 0-indexed.
+		'''
+		cells = self.getAdjCells(pos)
+		explored = []
+		for cell in cells:
+			if cell in self.explored_cells:
+				explored.append(cell)
+		return explored
+	
 	def getAdjFlagged(self, pos: tuple) -> list:
 		'''
 		Returns a list of adjacent flagged cells to the given position.
@@ -167,65 +184,106 @@ class MyAI( AI ):
 					flagged.append(cell)
 		return flagged
 	
-	def oneOnePattern(self, pos: tuple, value: int) -> bool | tuple:
-		'''
-		If the given position follows a 1-1 / 1-1R pattern, return the position of the cell that can be uncovered. 
-		Otherwise, return False.
-		'''
-		# pos
-		# v
-		# . . . <- open this cell
-		# 1 1 
-		# the left one is touching 2 cells. the right one is also touching those two cells. therefore we can open the third cell
-
-		#cell value needs to be a one or needs to reduce to one
-		if not self.cellReducesToOne(pos, value):
-			return False
-		
-		#there has to be 2 unexplored cells in this pattern
-		if len(self.getAdjUnexplored(pos)) != 2:
-			return False
-		
-		adjcells = self.getAdjCells(pos) 
-		for cell in adjcells:
-
-			#find a cell with value one that is in the same x or y as our current cell
-			if cell in self.explored_cells and self.cellReducesToOne(cell, self.explored_cells[cell].value) and (cell[0] == pos[0] or cell[1] == pos[1]):
-
-				targetUnxAdjCells = self.getAdjUnexplored(cell)
-				ogUnxAdjCells = self.getAdjUnexplored(pos)
-
-				#they need to share 2 cells
-				if len(set(targetUnxAdjCells).intersection(set(ogUnxAdjCells))) != 2:
-					continue
-
-				for target in targetUnxAdjCells:
-					targetpos = ogUnxAdjCells[0]
-
-					#find possible third cells that are lined up
-					if target not in ogUnxAdjCells:
-						if target[0] == targetpos[0] or target[1] == targetpos[1]:
-							return target
-
-
-	def cellReducesToOne(self, pos: tuple, value: int) -> bool:
-		#optimize this by constantly keeping track of values as we flag mines
-		return value == 1 or (value - len(self.getAdjFlagged(pos))) == 1
-	
-	def respondToAction(self, cell) -> Action | str | None:
+	def respondToAction(self, cell : Cell) -> Action | str | None:
 		# If the cell value is -2 it needs to be flagged
-			if cell.value == -2:
-				self.pos = cell.pos
-				return Action(FLAG, cell.pos[0], cell.pos[1])
-			# If the cell value is -1 it needs to be explored
-			if cell.value == -1:
-				self.pos = cell.pos
-				return Action(UNCOVER, cell.pos[0], cell.pos[1])
-			# If the cell is fully explored, we can remove it from the queue
-			if cell.fully_explored:
-				self.priority_queue.remove(cell)
-				return 'continue'
+		if cell.value == -2:
+			self.pos = cell.pos
+			return Action(FLAG, cell.pos[0], cell.pos[1])
+		# If the cell value is -1 it needs to be explored
+		if cell.value == -1:
+			self.pos = cell.pos
+			return Action(UNCOVER, cell.pos[0], cell.pos[1])
+		# If the cell is fully explored, we can remove it from the queue
+		if cell.fully_explored:
+			self.priority_queue.remove(cell)
+			return 'continue'
 
+	def respondToPreviousAction(self, number : int):
+		if number == 0:
+			# This means we just uncovered a completely safe cell.
+			self.priority_queue.remove(Cell(self.pos))
+			self.explored_cells[self.pos] = Cell(self.pos, number, False, True)
+			adj_cells = self.getAdjUnexplored(self.pos)
+			for cell in adj_cells:
+				if cell not in self.priority_queue:
+					self.priority_queue.push(Cell(cell))
+		elif number == -1:
+			# This means we just flagged the previous cell.
+			self.priority_queue.remove(Cell(self.pos))
+			self.explored_cells[self.pos] = Cell(self.pos, -2, True, False)
+			self.flags += 1
+			# We can now reduce the value of all adjacent cells by 1
+			adj_cells = self.getAdjExplored(self.pos)
+			for cell in adj_cells:
+				self.explored_cells[cell].update_rd()
+				cell = self.explored_cells[cell]
+				if cell in self.priority_queue:
+					self.priority_queue.push(cell)
+		else:
+			# This means we just uncovered a cell with a number.
+			temp_cell = Cell(self.pos, number, False, False)
+			adj_cells = self.getAdjUnexplored(self.pos)
+			if len(adj_cells) == 0:
+				temp_cell.fully_explored = True
+			# We can now check for flags around the cell and reduce the value as needed
+			temp_cell.reduced_value = number - len(self.getAdjFlagged(self.pos))
+			self.explored_cells[self.pos] = temp_cell
+			self.priority_queue.push(temp_cell)
+
+	def travelQueue(self, func):
+		# A helper function to go through the priority queue and apply the given function.
+		while len(self.priority_queue) > 0:
+			cell = self.priority_queue.pop()
+			action = self.respondToAction(cell)
+			if action == 'continue':
+				continue
+			elif action:
+				return action
+			func(cell)
+
+	def baseCase(self):
+		# Now go through the priority queue and check if we can flag or uncover any cells.
+		# This is the simplest case where the two conditions are met.
+		def _basecase(cell : Cell):
+			# If we are here then this is a cell with a number
+			# If a cell is explored and unexplored cells are equal to the number 
+			# of mines, flag all unexplored cells
+			adj_cells = self.getAdjUnexplored(cell.pos)
+			# flagged_cells = self.getAdjFlagged(cell.pos)
+			if cell.reduced_value == len(adj_cells) and len(adj_cells) > 0:
+				for adj_cell in adj_cells:
+					self.priority_queue.push(Cell(adj_cell, -2))
+			# If a cell is explored and the number of flags adjacent to the cell is equal 
+			# to the number of mines, uncover all unexplored cells
+			if cell.reduced_value == 0:
+				for adj_cell in self.getAdjUnexplored(cell.pos):
+					self.priority_queue.push(Cell(adj_cell))
+
+		return self.travelQueue(_basecase)
+
+	def handlePatterns(self):
+		# Now go through the priority queue and check if we can apply any patterns.
+		# This is the more complex case where we have to apply patterns.
+		def _handlepatterns(cell : Cell):
+			# 1-1, 1-1R
+			uncov = self.oneOnePattern(cell)
+			if uncov:
+				self.priority_queue.push(Cell(uncov))
+
+		return self.travelQueue(_handlepatterns)
+	
+	def handleGuess(self):
+		# If we are here, then we are in a unlucky situation where we have to guess.
+		# Pick the lowest number cell with unexplored values and uncover one if its adjacent cells.
+		local = list(self.priority_queue.queue)
+		local = sorted(local, key=lambda x: x.value)
+		for cell in local:
+			if len(self.getAdjUnexplored(cell.pos)) > 0:
+				adj = self.getAdjUnexplored(cell.pos)
+				choice = random.choice(adj)
+				self.pos = choice
+				return Action(UNCOVER, choice[0], choice[1])
+		return Action(LEAVE)
 
 	def getAction(self, number: int) -> Action:
 		'''
@@ -266,84 +324,57 @@ class MyAI( AI ):
 			 	- This is two priority queues, when moving through we pop to the other queue.
 
 		'''
-		if number == 0:
-			# This means we just uncovered a completely safe cell.
-			self.priority_queue.remove(Cell(self.pos))
-			self.explored_cells[self.pos] = Cell(self.pos, number, False, True)
-			adj_cells = self.getAdjUnexplored(self.pos)
-			for cell in adj_cells:
-				if cell not in self.priority_queue:
-					self.priority_queue.push(Cell(cell))
-		elif number == -1:
-			# This means we just flagged the previous cell.
-			self.priority_queue.remove(Cell(self.pos))
-			self.explored_cells[self.pos] = Cell(self.pos, -2, True, False)
-			self.flags += 1
-		else:
-			# This means we just uncovered a cell with a number.
-			temp_cell = Cell(self.pos, number, False, False)
-			adj_cells = self.getAdjUnexplored(self.pos)
-			if len(adj_cells) == 0:
-				temp_cell.fully_explored = True
-			self.explored_cells[self.pos] = temp_cell
-			self.priority_queue.push(temp_cell)
-			
-		self.priority_queue.reset()
-		# Now go through the priority queue and check if we can flag or uncover any cells.
-		while len(self.priority_queue) > 0:
-			cell = self.priority_queue.pop()
-
-			action = self.respondToAction(cell)
-			if action == 'continue':
-				continue
-			elif action:
-				return action
-
-			# If we are here then this is a cell with a number
-
-			# Check if we can flag any cells
-			adj_cells = self.getAdjUnexplored(cell.pos)
-			flagged_cells = self.getAdjFlagged(cell.pos)
-			if cell.value - len(flagged_cells) == len(adj_cells) and len(adj_cells) > 0:
-				for adj_cell in adj_cells:
-					self.priority_queue.push(Cell(adj_cell, -2))
-
-			# Check if we can uncover any cells
-			if cell.value == len(flagged_cells):
-				for adj_cell in self.getAdjUnexplored(cell.pos):
-					self.priority_queue.push(Cell(adj_cell))
-
-		#go through the priority queue and check for patterns
-		self.priority_queue.reset()
-		while len(self.priority_queue) > 0:
-			cell = self.priority_queue.pop()
-
-			action = self.respondToAction(cell)
-			if action == 'continue':
-				continue
-			elif action:
-				return action
-
-			#1-1, 1-1R
-			uncov = self.oneOnePattern(cell.pos, cell.value)
-			if uncov:
-				self.priority_queue.push(Cell(uncov))
-				
-
-		# If we are here, then we are in a unlucky situation where we have to guess.
-		# Pick the lowest number cell with unexplored values and unncover one if its adjacent cells.
+		self.respondToPreviousAction(number)
 		self.priority_queue.reset()
 
-		local = list(self.priority_queue.queue)
-		local = sorted(local, key=lambda x: x.value)
-		for cell in local:
-			if len(self.getAdjUnexplored(cell.pos)) > 0:
-				adj = self.getAdjUnexplored(cell.pos)
-				choice = random.choice(adj)
-				self.pos = choice
-				return Action(UNCOVER, choice[0], choice[1])
-		return Action(LEAVE)
-	
+		action = self.baseCase()
+		if action: return action
+		self.priority_queue.reset()
+
+		action = self.handlePatterns()
+		if action: return action
+		self.priority_queue.reset()
+
+		return self.handleGuess()
+
+	'''
+	PATTERNS
+	'''
+	def oneOnePattern(self, cell : Cell) -> bool | tuple:
+		'''
+		If the given position follows a 1-1 / 1-1R pattern, return the position of the cell that can be uncovered. 
+		Otherwise, return False.
+		'''
+		# The left one is touching 2 cells. the right one is also touching those two cells. therefore we can open the third cell
+		# . . . <- open this cell
+		# 1 1 
+
+		def checkOne(cell : Cell):
+			return cell.reduced_value == 1 and not cell.flagged
+
+		pos = cell.pos
+		#cell value needs to be a one or needs to reduce to one
+		if not checkOne(cell):
+			return False		
+		#there has to be 2 unexplored cells in this pattern
+		if len(self.getAdjUnexplored(pos)) != 2:
+			return False
+		
+		adjcells = self.getAdjCells(pos) 
+		for cell in adjcells:
+			#find a cell with value one that is in the same x or y as our current cell
+			if cell in self.explored_cells and checkOne(self.explored_cells[cell]) and (cell[0] == pos[0] or cell[1] == pos[1]):
+				targetUnxAdjCells = self.getAdjUnexplored(cell)
+				ogUnxAdjCells = self.getAdjUnexplored(pos)
+				#they need to share 2 cells
+				if len(set(targetUnxAdjCells).intersection(set(ogUnxAdjCells))) != 2:
+					continue
+				for target in targetUnxAdjCells:
+					targetpos = ogUnxAdjCells[0]
+					#find possible third cells that are lined up
+					if target not in ogUnxAdjCells:
+						if target[0] == targetpos[0] or target[1] == targetpos[1]:
+							return target
 
 			
 if __name__ == '__main__':
