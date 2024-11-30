@@ -43,17 +43,17 @@ class Cell:
 		# Then the larger values get popped if all > 0
 		# So it would be -2, -1, 4, 3, 2, 1
 		# Step 1: Prioritize negative values over positive values.
-		if self.value < 0 and other.value >= 0:
+		if self.reduced_value < 0 and other.reduced_value >= 0:
 			return True
-		elif self.value >= 0 and other.value < 0:
+		elif self.reduced_value >= 0 and other.reduced_value < 0:
 			return False
 
         # Step 2: When both are negative, order ascending (-2 before -1)
         # or when both are positive, order descending (4 before 3).
 		if self.value < 0:
-			return self.value < other.value
+			return self.reduced_value < other.reduced_value
 		else:
-			return self.value > other.value
+			return self.reduced_value > other.reduced_value
 
 	def __eq__(self, other):
 		if isinstance(other, tuple):
