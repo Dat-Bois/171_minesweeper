@@ -159,7 +159,7 @@ def main():
 			if len(times) > 0:
 				print(f"Average Time Per Board: {(total_time / len(times)):.3f}")
 				print(f"Best 5 Times: {sorted_times[:5]}")
-				print(f"Worst 5 Times: {sorted_times[-5:]}")
+				print(f"Worst 5 Times: {list(reversed(sorted_times[-5:]))}")
 				print(f"Total Time Taken: {total_time:.3f}")
 			else:
 				print("No boards completed")
