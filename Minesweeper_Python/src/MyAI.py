@@ -349,14 +349,12 @@ class MyAI( AI ):
 		# . . . <- open this cell
 		# 1 1 
 
-		def cellReducesToOne(self : MyAI, pos: tuple, value: int) -> bool:
-			#optimize this by constantly keeping track of values as we flag mines
-			return value == 1 or (value - len(self.getAdjFlagged(pos))) == 1
+		def checkOne(cell : Cell):
+			return cell.reduced_value == 1 and not cell.flagged
 
 		pos = cell.pos
-		value = cell.value
 		#cell value needs to be a one or needs to reduce to one
-		if not cellReducesToOne(self, pos, value):
+		if not checkOne(cell):
 			return False		
 		#there has to be 2 unexplored cells in this pattern
 		if len(self.getAdjUnexplored(pos)) != 2:
@@ -365,7 +363,7 @@ class MyAI( AI ):
 		adjcells = self.getAdjCells(pos) 
 		for cell in adjcells:
 			#find a cell with value one that is in the same x or y as our current cell
-			if cell in self.explored_cells and cellReducesToOne(self, cell, self.explored_cells[cell].value) and (cell[0] == pos[0] or cell[1] == pos[1]):
+			if cell in self.explored_cells and checkOne(self.explored_cells[cell]) and (cell[0] == pos[0] or cell[1] == pos[1]):
 				targetUnxAdjCells = self.getAdjUnexplored(cell)
 				ogUnxAdjCells = self.getAdjUnexplored(pos)
 				#they need to share 2 cells
