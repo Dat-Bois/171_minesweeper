@@ -30,8 +30,13 @@ class Cell:
 	def __init__(self, pos: Tuple[int, int], value: int = -1, flagged: bool = False, fully_explored: bool = False):
 		self.pos = pos
 		self.value = value
+		self.reduced_value = value
 		self.flagged = flagged
 		self.fully_explored = fully_explored
+
+	def update_rd(self):
+		if self.value > 0 and not self.flagged:
+			self.reduced_value -= 1
 
 	def __lt__(self, other):
 		# Values less than 0 get popped first
@@ -154,6 +159,18 @@ class MyAI( AI ):
 				unexplored.append(cell)
 		return unexplored
 	
+	def getAdjExplored(self, pos: tuple) -> list:
+		'''
+		Returns a list of adjacent explored cells to the given position.
+		The cells are 0-indexed.
+		'''
+		cells = self.getAdjCells(pos)
+		explored = []
+		for cell in cells:
+			if cell in self.explored_cells:
+				explored.append(cell)
+		return explored
+	
 	def getAdjFlagged(self, pos: tuple) -> list:
 		'''
 		Returns a list of adjacent flagged cells to the given position.
@@ -195,12 +212,21 @@ class MyAI( AI ):
 			self.priority_queue.remove(Cell(self.pos))
 			self.explored_cells[self.pos] = Cell(self.pos, -2, True, False)
 			self.flags += 1
+			# We can now reduce the value of all adjacent cells by 1
+			adj_cells = self.getAdjExplored(self.pos)
+			for cell in adj_cells:
+				self.explored_cells[cell].update_rd()
+				cell = self.explored_cells[cell]
+				if cell in self.priority_queue:
+					self.priority_queue.push(cell)
 		else:
 			# This means we just uncovered a cell with a number.
 			temp_cell = Cell(self.pos, number, False, False)
 			adj_cells = self.getAdjUnexplored(self.pos)
 			if len(adj_cells) == 0:
 				temp_cell.fully_explored = True
+			# We can now check for flags around the cell and reduce the value as needed
+			temp_cell.reduced_value = number - len(self.getAdjFlagged(self.pos))
 			self.explored_cells[self.pos] = temp_cell
 			self.priority_queue.push(temp_cell)
 
@@ -223,13 +249,13 @@ class MyAI( AI ):
 			# If a cell is explored and unexplored cells are equal to the number 
 			# of mines, flag all unexplored cells
 			adj_cells = self.getAdjUnexplored(cell.pos)
-			flagged_cells = self.getAdjFlagged(cell.pos)
-			if cell.value - len(flagged_cells) == len(adj_cells) and len(adj_cells) > 0:
+			# flagged_cells = self.getAdjFlagged(cell.pos)
+			if cell.reduced_value == len(adj_cells) and len(adj_cells) > 0:
 				for adj_cell in adj_cells:
 					self.priority_queue.push(Cell(adj_cell, -2))
 			# If a cell is explored and the number of flags adjacent to the cell is equal 
 			# to the number of mines, uncover all unexplored cells
-			if cell.value == len(flagged_cells):
+			if cell.reduced_value == 0:
 				for adj_cell in self.getAdjUnexplored(cell.pos):
 					self.priority_queue.push(Cell(adj_cell))
 
