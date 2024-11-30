@@ -336,6 +336,7 @@ class MyAI( AI ):
 		# If we are here, then we are in a unlucky situation where we have to guess.
 		# Pick the lowest number cell with unexplored values and unncover one if its adjacent cells.
 		self.priority_queue.reset()
+		
 		local = list(self.priority_queue.queue)
 		local = sorted(local, key=lambda x: x.value)
 		for cell in local:
