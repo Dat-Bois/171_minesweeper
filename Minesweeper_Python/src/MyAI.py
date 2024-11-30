@@ -167,7 +167,11 @@ class MyAI( AI ):
 					flagged.append(cell)
 		return flagged
 	
-	def oneOnePattern(self, pos: tuple, value: int) -> bool:
+	def oneOnePattern(self, pos: tuple, value: int) -> bool | tuple:
+		'''
+		If the given position follows a 1-1 / 1-1R pattern, return the position of the cell that can be uncovered. 
+		Otherwise, return False.
+		'''
 		# pos
 		# v
 		# . . . <- open this cell
@@ -205,9 +209,10 @@ class MyAI( AI ):
 
 
 	def cellReducesToOne(self, pos: tuple, value: int) -> bool:
+		#optimize this by constantly keeping track of values as we flag mines
 		return value == 1 or (value - len(self.getAdjFlagged(pos))) == 1
 	
-	def respondToAction(self, cell):
+	def respondToAction(self, cell) -> Action | str | None:
 		# If the cell value is -2 it needs to be flagged
 			if cell.value == -2:
 				self.pos = cell.pos
@@ -288,18 +293,11 @@ class MyAI( AI ):
 		while len(self.priority_queue) > 0:
 			cell = self.priority_queue.pop()
 
-			# If the cell value is -2 it needs to be flagged
-			if cell.value == -2:
-				self.pos = cell.pos
-				return Action(FLAG, cell.pos[0], cell.pos[1])
-			# If the cell value is -1 it needs to be explored
-			if cell.value == -1:
-				self.pos = cell.pos
-				return Action(UNCOVER, cell.pos[0], cell.pos[1])
-			# If the cell is fully explored, we can remove it from the queue
-			if cell.fully_explored:
-				self.priority_queue.remove(cell)
+			action = self.respondToAction(cell)
+			if action == 'continue':
 				continue
+			elif action:
+				return action
 
 			# If we are here then this is a cell with a number
 
@@ -315,11 +313,10 @@ class MyAI( AI ):
 				for adj_cell in self.getAdjUnexplored(cell.pos):
 					self.priority_queue.push(Cell(adj_cell))
 
+		#go through the priority queue and check for patterns
 		self.priority_queue.reset()
 		while len(self.priority_queue) > 0:
 			cell = self.priority_queue.pop()
-
-			#turn into function to avoid repetition
 
 			action = self.respondToAction(cell)
 			if action == 'continue':
@@ -327,7 +324,7 @@ class MyAI( AI ):
 			elif action:
 				return action
 
-			#if this cell has a 1-1 pattern, push the "third" cell to the queue
+			#1-1, 1-1R
 			uncov = self.oneOnePattern(cell.pos, cell.value)
 			if uncov:
 				self.priority_queue.push(Cell(uncov))
@@ -336,7 +333,7 @@ class MyAI( AI ):
 		# If we are here, then we are in a unlucky situation where we have to guess.
 		# Pick the lowest number cell with unexplored values and unncover one if its adjacent cells.
 		self.priority_queue.reset()
-		
+
 		local = list(self.priority_queue.queue)
 		local = sorted(local, key=lambda x: x.value)
 		for cell in local:
