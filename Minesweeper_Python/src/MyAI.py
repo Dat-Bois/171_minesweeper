@@ -138,7 +138,7 @@ class MyAI( AI ):
 			for j in range(-1, 2):
 				if i == 0 and j == 0:
 					continue
-				if 0 <= row + i < self.grid_dim[0] and 0 <= col + j < self.grid_dim[1]:
+				if 0 <= row + i < self.grid_dim[1] and 0 <= col + j < self.grid_dim[0]:
 					adj_cells.append((row + i, col + j))
 		return adj_cells
 		
