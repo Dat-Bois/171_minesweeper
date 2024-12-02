@@ -285,7 +285,7 @@ class MyAI( AI ):
 				for pos in result:
 					return Action(FLAG, pos[0], pos[1])
 			
-			# Apply 1-2C+ pattern (potential implementation)
+			# Apply 1-2C+ pattern
 			result_plus = self.oneTwoCPlusPattern(cell)
 			if result_plus:
 				for pos in result_plus:
@@ -448,6 +448,53 @@ class MyAI( AI ):
 							return third_cells[0]
 		return False
 	
+	def oneTwoCPlusPattern(self, cell: Cell) -> bool | list[Tuple[int, int]]:
+		"""
+		Implements the 1-2C+ pattern.
+		If applicable, return a list of positions for cells to be flagged.
+		Otherwise, return False.
+		
+		Logic:
+		1. The given cell must have a reduced value of 1 (and not be flagged).
+		2. Find a neighboring cell with a reduced value >= 3 (and not flagged).
+		3. Identify shared unexplored cells between the 1 and the N.
+		4. If shared cells are fewer than or equal to the number allowed by the 1, proceed.
+		5. Deduce the remaining unexplored cells adjacent to the N as mines.
+		"""
+		pos = cell.pos
+		
+		# The cell must be a 1 and not flagged
+		if cell.reduced_value != 1 or cell.flagged:
+			return False
+
+		# Get adjacent cells
+		adj_cells = self.getAdjCells(pos)
+		
+		for neighbor_pos in adj_cells:
+			if neighbor_pos in self.explored_cells:
+				neighbor = self.explored_cells[neighbor_pos]
+				
+				# Look for a neighboring cell with a reduced value >= 3
+				if neighbor.reduced_value >= 3 and not neighbor.flagged:
+					# Find shared unexplored cells between the 1 and the N
+					shared_unexplored = set(self.getAdjUnexplored(pos)).intersection(set(self.getAdjUnexplored(neighbor_pos)))
+					
+					# Ensure there are shared cells to form a valid pattern
+					if not shared_unexplored:
+						continue
+					
+					# Validate the shared cells count relative to the "1" cell
+					if len(shared_unexplored) <= cell.reduced_value:
+						# Remaining unexplored cells adjacent to the "N"
+						remaining_cells = set(self.getAdjUnexplored(neighbor_pos)) - shared_unexplored
+						
+						# Calculate remaining mines required
+						remaining_mines = neighbor.reduced_value - len(shared_unexplored)
+						
+						# Ensure remaining_mines is positive and does not exceed remaining_cells
+						if remaining_mines > 0 and len(remaining_cells) == remaining_mines:
+							return list(remaining_cells)  # Return all cells to be flagged
+		return False
 
 if __name__ == '__main__':
 	# test = MyAI(5, 5, 5, 1, 1)
