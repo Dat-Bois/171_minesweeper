@@ -17,7 +17,7 @@ from Action import Action
 
 import heapq
 import random
-from typing import Dict, Tuple, TypeVar, Generic, Any
+from typing import Dict, Tuple, TypeVar, Generic, Any, List
 
 
 UNCOVER = AI.Action.UNCOVER
@@ -261,49 +261,56 @@ class MyAI( AI ):
 
 		return self.travelQueue(_basecase)
 	
-	'''
 	def handlePatterns(self):
 		# Now go through the priority queue and check if we can apply any patterns.
 		# This is the more complex case where we have to apply patterns.
 		def _handlepatterns(cell : Cell):
 			# 1-1, 1-1R
-			uncov = self.oneOnePattern(cell)
-			if uncov:
-				self.priority_queue.push(Cell(uncov))
-
-		return self.travelQueue(_handlepatterns)
-	'''
-	
-	def handlePatterns(self):
-		"""
-		Apply patterns like 1-2C and 1-2C+ and return corresponding actions.
-		"""
-		for cell in list(self.priority_queue.queue):
-			# Apply 1-2C pattern
+			result = self.oneOnePattern(cell)
+			if result:
+				self.priority_queue.push(Cell(result))
 			result = self.oneTwoCPattern(cell)
 			if result:
 				for pos in result:
-					return Action(FLAG, pos[0], pos[1])
-			
-			# Apply 1-2C+ pattern
-			result_plus = self.oneTwoCPlusPattern(cell)
-			if result_plus:
-				for pos in result_plus:
-					return Action(FLAG, pos[0], pos[1])
-		
-		return None 
+					self.priority_queue.push(Cell(pos, -2))
+			result = self.oneTwoCPlusPattern(cell)
+			if result:
+				for pos in result:
+					self.priority_queue.push(Cell(pos, -2))
 
-	def handleGuess(self):
+		return self.travelQueue(_handlepatterns)
+	
+	# def handlePatterns(self):
+	# 	"""
+	# 	Apply patterns like 1-2C and 1-2C+ and return corresponding actions.
+	# 	"""
+	# 	for cell in list(self.priority_queue.queue):
+	# 		# Apply 1-2C pattern
+	# 		result = self.oneTwoCPattern(cell)
+	# 		if result:
+	# 			for pos in result:
+	# 				return Action(FLAG, pos[0], pos[1])
+			
+	# 		# Apply 1-2C+ pattern
+	# 		result_plus = self.oneTwoCPlusPattern(cell)
+	# 		if result_plus:
+	# 			for pos in result_plus:
+	# 				return Action(FLAG, pos[0], pos[1])
+		
+	# 	return None 
+
+	def handleGuess(self, debug=False):
 		# If we are here, then we are in a unlucky situation where we have to guess.
 		# Pick the lowest number cell with unexplored values and uncover one if its adjacent cells.
-		local = list(self.priority_queue.queue)
-		local = sorted(local, key=lambda x: x.value)
-		for cell in local:
-			if len(self.getAdjUnexplored(cell.pos)) > 0:
-				adj = self.getAdjUnexplored(cell.pos)
-				choice = random.choice(adj)
-				self.pos = choice
-				return Action(UNCOVER, choice[0], choice[1])
+		if not debug:
+			local : List[Cell] = list(self.priority_queue.queue)
+			local = sorted(local, key=lambda x: x.value)
+			for cell in local:
+				if len(self.getAdjUnexplored(cell.pos)) > 0:
+					adj = self.getAdjUnexplored(cell.pos)
+					choice = random.choice(adj)
+					self.pos = choice
+					return Action(UNCOVER, choice[0], choice[1])
 		return Action(LEAVE)
 
 	def getAction(self, number: int) -> Action:
@@ -356,7 +363,7 @@ class MyAI( AI ):
 		if action: return action
 		self.priority_queue.reset()
 
-		return self.handleGuess()
+		return self.handleGuess(debug=True)
 
 	'''
 	PATTERNS
@@ -445,6 +452,7 @@ class MyAI( AI ):
 						# If exactly one remaining mine is needed, flag the third cell
 						remaining_mines = neighbor.reduced_value - len(shared_unexplored)
 						if remaining_mines == 1 and len(third_cells) == 1:
+							print("1-2C pattern found")
 							return third_cells[0]
 		return False
 	
@@ -493,6 +501,7 @@ class MyAI( AI ):
 						
 						# Ensure remaining_mines is positive and does not exceed remaining_cells
 						if remaining_mines > 0 and len(remaining_cells) == remaining_mines:
+							print("1-2C+ pattern found")
 							return list(remaining_cells)  # Return all cells to be flagged
 		return False
 
