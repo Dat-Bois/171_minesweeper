@@ -268,7 +268,8 @@ class MyAI( AI ):
 			# 1-1, 1-1R
 			uncov = self.oneOnePattern(cell)
 			if uncov:
-				self.priority_queue.push(Cell(uncov))
+				for x in uncov:
+					self.priority_queue.push(Cell(x))
 
 		return self.travelQueue(_handlepatterns)
 	
@@ -340,9 +341,9 @@ class MyAI( AI ):
 	'''
 	PATTERNS
 	'''
-	def oneOnePattern(self, cell : Cell) -> bool | tuple:
+	def oneOnePattern(self, cell : Cell) -> bool | list[tuple]:
 		'''
-		If the given position follows a 1-1 / 1-1R pattern, return the position of the cell that can be uncovered. 
+		If the given position follows a 1-1 / 1-1R / 1-1+ pattern, return a list of the positions cells that can be uncovered. 
 		Otherwise, return False.
 		'''
 		# The left one is touching 2 cells. the right one is also touching those two cells. therefore we can open the third cell
@@ -351,7 +352,7 @@ class MyAI( AI ):
 
 		def checkOne(cell : Cell):
 			return cell.reduced_value == 1 and not cell.flagged
-
+		
 		pos = cell.pos
 		#cell value needs to be a one or needs to reduce to one
 		if not checkOne(cell):
@@ -369,12 +370,17 @@ class MyAI( AI ):
 				#they need to share 2 cells
 				if len(set(targetUnxAdjCells).intersection(set(ogUnxAdjCells))) != 2:
 					continue
+
+				total = []
 				for target in targetUnxAdjCells:
 					targetpos = ogUnxAdjCells[0]
 					#find possible third cells that are lined up
 					if target not in ogUnxAdjCells:
-						if target[0] == targetpos[0] or target[1] == targetpos[1]:
-							return target
+						# if target[0] == targetpos[0] or target[1] == targetpos[1]:
+						# 	return target
+						total.append(target)
+				return total
+			
 
 			
 if __name__ == '__main__':
