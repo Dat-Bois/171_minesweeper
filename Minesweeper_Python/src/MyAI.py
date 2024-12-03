@@ -17,7 +17,7 @@ from Action import Action
 
 import heapq
 import random
-from typing import Dict, Tuple, TypeVar, Generic, Any
+from typing import Dict, List, Tuple, TypeVar, Generic, Any
 
 
 UNCOVER = AI.Action.UNCOVER
@@ -261,73 +261,29 @@ class MyAI( AI ):
 
 		return self.travelQueue(_basecase)
 	
-	'''
 	def handlePatterns(self):
 		# Now go through the priority queue and check if we can apply any patterns.
 		# This is the more complex case where we have to apply patterns.
 		def _handlepatterns(cell : Cell):
 			# 1-1, 1-1R
-			uncov = self.oneOnePattern(cell)
-			if uncov:
-				self.priority_queue.push(Cell(uncov))
-
-		return self.travelQueue(_handlepatterns)
-	'''
-	
-	# def handlePatterns(self):
-	# 	"""
-	# 	Apply patterns like 1-2C and 1-2C+ and return corresponding actions.
-	# 	"""
-	# 	for cell in list(self.priority_queue.queue):
-	# 		# Apply 1-2C pattern
-	# 		result = self.oneTwoCPattern(cell)
-	# 		if result:
-	# 			if isinstance(result, tuple):
-	# 				# Single position tuple
-	# 				return Action(FLAG, result[0], result[1])
-	# 			elif isinstance(result, list):
-	# 				# List of position tuples
-	# 				for pos in result:
-	# 					return Action(FLAG, pos[0], pos[1])
-			
-	# 		# Apply 1-2C+ pattern
-	# 		result_plus = self.oneTwoCPlusPattern(cell)
-	# 		if result_plus:
-	# 			if isinstance(result_plus, tuple):
-	# 				# Single position tuple
-	# 				return Action(FLAG, result_plus[0], result_plus[1])
-	# 			elif isinstance(result_plus, list):
-	# 				# List of position tuples
-	# 				for pos in result_plus:
-	# 					return Action(FLAG, pos[0], pos[1])
-		
-	# 	return None 
-
-	def handlePatterns(self):
-		"""
-		Apply patterns like 1-2C and 1-2C+ and return corresponding actions.
-		"""
-		for cell in list(self.priority_queue.queue):
-			# Apply 1-2C pattern
+			result = self.oneOnePattern(cell)
+			if result:
+				self.priority_queue.push(Cell(result))
 			result = self.oneTwoCPattern(cell)
 			if result:
 				for pos in result:
-					print(f"Flagging cell at position: {pos}")  # Debug statement
-					return Action(FLAG, pos[0], pos[1])
-			
-			# Apply 1-2C+ pattern
-			result_plus = self.oneTwoCPlusPattern(cell)
-			if result_plus:
-				for pos in result_plus:
-					print(f"Flagging cell at position: {pos}")  # Debug statement
-					return Action(FLAG, pos[0], pos[1])
-		
-		return None 
+					self.priority_queue.push(Cell(pos, -2))
+			result = self.oneTwoCPlusPattern(cell)
+			if result:
+				for pos in result:
+					self.priority_queue.push(Cell(pos, -2))
+
+		return self.travelQueue(_handlepatterns)
 	
 	def handleGuess(self):
 		# If we are here, then we are in a unlucky situation where we have to guess.
 		# Pick the lowest number cell with unexplored values and uncover one if its adjacent cells.
-		local = list(self.priority_queue.queue)
+		local : List[Cell] = list(self.priority_queue.queue)
 		local = sorted(local, key=lambda x: x.value)
 		for cell in local:
 			if len(self.getAdjUnexplored(cell.pos)) > 0:
@@ -520,73 +476,3 @@ class MyAI( AI ):
 						return remaining_cells  # Already a list
 		
 		return False
-
-if __name__ == '__main__':
-	# test = MyAI(5, 5, 5, 1, 1)
-	# print(test.getAdjCells((2, 2)))
-	pq = PriorityQueue[Cell]()
-	pq.push(Cell((1, 1), 0))
-	pq.push(Cell((1, 2), 1))
-	pq.push(Cell((1, 3), 2))
-	pq.push(Cell((1, 4), 0))
-	pq.push(Cell((1, 4), -1))
-	pq.push(Cell((1, 4), -2))
-	print(pq)
-
-"""
-if __name__ == '__main__':
-    def test_oneTwoCPattern():
-        #Test the 1-2C pattern implementation.
-        ai = MyAI(5, 5, 5, 1, 1)
-
-        # Setup a 1-2C pattern on the board:
-        # 1 2 ?
-        # . ? ?
-        ai.explored_cells = {
-            (1, 1): Cell((1, 1), 1),
-            (1, 2): Cell((1, 2), 2)
-        }
-        ai.priority_queue.push(ai.explored_cells[(1, 1)])
-        ai.priority_queue.push(ai.explored_cells[(1, 2)])
-
-        ai.getAdjUnexplored = lambda pos: {
-            (1, 1): [(2, 1), (2, 2)],
-            (1, 2): [(2, 1), (2, 2), (3, 2)]
-        }.get(pos, [])
-
-        result = ai.oneTwoCPattern(ai.explored_cells[(1, 1)])
-        expected = (3, 2)  
-        
-        assert result == expected, f"Expected {expected}, got {result}"
-        print("Test passed: 1-2C pattern correctly identified.")
-
-    def test_oneTwoCPlusPattern():
-        #Test the 1-2C+ pattern implementation.
-        ai = MyAI(5, 5, 5, 1, 1)
-
-        # Setup a 1-2C+ pattern on the board:
-        # 1 4 ?
-        # . ? ?
-        ai.explored_cells = {
-            (1, 1): Cell((1, 1), 1),
-            (1, 2): Cell((1, 2), 4)
-        }
-        ai.priority_queue.push(ai.explored_cells[(1, 1)])
-        ai.priority_queue.push(ai.explored_cells[(1, 2)])
-
-        ai.getAdjUnexplored = lambda pos: {
-            (1, 1): [(2, 1), (2, 2)],
-            (1, 2): [(2, 1), (2, 2), (2, 3), (3, 3), (3, 2)]
-        }.get(pos, [])
-
-        result = ai.oneTwoCPlusPattern(ai.explored_cells[(1, 1)])
-        expected = [(2, 3), (3, 3), (3, 2)]  
-        result = result or []  
-
-        assert sorted(result) == sorted(expected), f"Expected {expected}, got {result}"
-        print("Test passed: 1-2C+ pattern correctly identified.")
-
-    # Run the tests
-    test_oneTwoCPattern()
-    test_oneTwoCPlusPattern()
-"""
