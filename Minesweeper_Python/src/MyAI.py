@@ -266,12 +266,15 @@ class MyAI( AI ):
 		# This is the more complex case where we have to apply patterns.
 		def _handlepatterns(cell : Cell):
 			# 1-1, 1-1R
-			uncov = self.oneOnePattern(cell)
-			if uncov:
-				for x in uncov:
-					self.priority_queue.push(Cell(x))
 
-				return
+			# 2 will cover 1-1 and h1, 3 will cover T1, 4 will cover extra cases
+			for i in range(2, 5):
+				uncov = self.generalPattern(cell, i)
+				if uncov:
+					for x in uncov:
+						self.priority_queue.push(Cell(x))
+
+					return
 
 			second = self.holeThreePattern(cell)
 			if second:
@@ -346,13 +349,15 @@ class MyAI( AI ):
 		self.priority_queue.reset()
 
 		return self.handleGuess()
+		# return Action(LEAVE)
 
 	'''
 	PATTERNS
 	'''
-	def oneOnePattern(self, cell : Cell) -> bool | list[tuple]:
+	
+	def generalPattern(self, cell : Cell, amount) -> bool | list[tuple]:
 		'''
-		If the given position follows a 1-1 / 1-1R / 1-1+ / H1 / H2 pattern, return a list of the positions cells that can be uncovered. 
+		If the given position follows a 1-1 / 1-1R / 1-1+ / H1 / H2 / T1 pattern, return a list of the positions cells that can be uncovered. 
 		Otherwise, return False.
 		'''
 		# The left one is touching 2 cells. the right one is also touching those two cells. therefore we can open the third cell
@@ -367,26 +372,23 @@ class MyAI( AI ):
 		if not checkOne(cell):
 			return False		
 		#there has to be 2 unexplored cells in this pattern
-		if len(self.getAdjUnexplored(pos)) != 2:
+		if len(self.getAdjUnexplored(pos)) != amount:
 			return False
 		
 		adjcells = self.getAdjCells(pos) 
 		total = []
 		for cell in adjcells:
-			#find a cell with value one that is in the same x or y as our current cell
-			if cell in self.explored_cells and checkOne(self.explored_cells[cell]) and (cell[0] == pos[0] or cell[1] == pos[1]):
+			#find a cell with value one 
+			if cell in self.explored_cells and checkOne(self.explored_cells[cell]): 
 				targetUnxAdjCells = self.getAdjUnexplored(cell)
 				ogUnxAdjCells = self.getAdjUnexplored(pos)
-				#they need to share 2 cells
-				if len(set(targetUnxAdjCells).intersection(set(ogUnxAdjCells))) != 2:
+
+				#they need to share x cells
+				if len(set(targetUnxAdjCells).intersection(set(ogUnxAdjCells))) != amount:
 					continue
 
 				for target in targetUnxAdjCells:
-					# targetpos = ogUnxAdjCells[0]
-					#find possible third cells that are lined up
 					if target not in ogUnxAdjCells:
-						# if target[0] == targetpos[0] or target[1] == targetpos[1]:
-						# 	return target
 						total.append(target)
 		return total
 	
