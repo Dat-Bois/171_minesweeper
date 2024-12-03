@@ -17,7 +17,7 @@ from Action import Action
 
 import heapq
 import random
-from typing import Dict, Tuple, TypeVar, Generic, Any
+from typing import Dict, List, Tuple, TypeVar, Generic, Any
 
 
 UNCOVER = AI.Action.UNCOVER
@@ -184,7 +184,7 @@ class MyAI( AI ):
 					flagged.append(cell)
 		return flagged
 	
-	def respondToAction(self, cell : Cell) -> Action | str | None:
+	def respondToAction(self, cell : Cell):
 		# If the cell value is -2 it needs to be flagged
 		if cell.value == -2:
 			self.pos = cell.pos
@@ -260,22 +260,30 @@ class MyAI( AI ):
 					self.priority_queue.push(Cell(adj_cell))
 
 		return self.travelQueue(_basecase)
-
+	
 	def handlePatterns(self):
 		# Now go through the priority queue and check if we can apply any patterns.
 		# This is the more complex case where we have to apply patterns.
 		def _handlepatterns(cell : Cell):
 			# 1-1, 1-1R
-			uncov = self.oneOnePattern(cell)
-			if uncov:
-				self.priority_queue.push(Cell(uncov))
+			result = self.oneOnePattern(cell)
+			if result:
+				self.priority_queue.push(Cell(result))
+			result = self.oneTwoCPattern(cell)
+			if result:
+				for pos in result:
+					self.priority_queue.push(Cell(pos, -2))
+			result = self.oneTwoCPlusPattern(cell)
+			if result:
+				for pos in result:
+					self.priority_queue.push(Cell(pos, -2))
 
 		return self.travelQueue(_handlepatterns)
 	
 	def handleGuess(self):
 		# If we are here, then we are in a unlucky situation where we have to guess.
 		# Pick the lowest number cell with unexplored values and uncover one if its adjacent cells.
-		local = list(self.priority_queue.queue)
+		local : List[Cell] = list(self.priority_queue.queue)
 		local = sorted(local, key=lambda x: x.value)
 		for cell in local:
 			if len(self.getAdjUnexplored(cell.pos)) > 0:
@@ -340,7 +348,7 @@ class MyAI( AI ):
 	'''
 	PATTERNS
 	'''
-	def oneOnePattern(self, cell : Cell) -> bool | tuple:
+	def oneOnePattern(self, cell : Cell):
 		'''
 		If the given position follows a 1-1 / 1-1R pattern, return the position of the cell that can be uncovered. 
 		Otherwise, return False.
@@ -376,15 +384,95 @@ class MyAI( AI ):
 						if target[0] == targetpos[0] or target[1] == targetpos[1]:
 							return target
 
-			
-if __name__ == '__main__':
-	# test = MyAI(5, 5, 5, 1, 1)
-	# print(test.getAdjCells((2, 2)))
-	pq = PriorityQueue[Cell]()
-	pq.push(Cell((1, 1), 0))
-	pq.push(Cell((1, 2), 1))
-	pq.push(Cell((1, 3), 2))
-	pq.push(Cell((1, 4), 0))
-	pq.push(Cell((1, 4), -1))
-	pq.push(Cell((1, 4), -2))
-	print(pq)
+	def oneTwoCPattern(self, cell: Cell):
+		"""
+		Implements the 1-2C pattern. If applicable, return the position of the flagged cell.
+		Otherwise, return False.
+		
+		Logic:
+		1. The given cell must have a reduced value of 1 (and not be flagged).
+		2. Find a neighboring cell with a reduced value of 2 (and not flagged).
+		3. Identify shared unexplored cells between the 1 and the 2.
+		4. If shared cells are fewer than or equal to the number allowed by the 1, proceed.
+		5. Deduce the remaining unexplored cell(s) adjacent to the 2 as potential mines.
+		"""
+		# The cell must be a 1 and not flagged
+		if cell.reduced_value != 1 or cell.flagged:
+			return False
+
+		# Check adjacent cells for a "2"
+		for neighbor_pos in self.getAdjCells(cell.pos):
+			if neighbor_pos in self.explored_cells:
+				neighbor = self.explored_cells[neighbor_pos]
+				
+				# Look for a neighboring cell with reduced value 2
+				if neighbor.reduced_value == 2 and not neighbor.flagged:
+					# Find shared unexplored cells
+					shared_unexplored = [
+						c for c in self.getAdjUnexplored(cell.pos)
+						if c in self.getAdjUnexplored(neighbor_pos)
+					]
+					
+					# Verify shared unexplored cells
+					if len(shared_unexplored) == 2:
+						# Remaining unexplored cells adjacent to the "2"
+						third_cells = [
+							c for c in self.getAdjUnexplored(neighbor_pos)
+							if c not in shared_unexplored
+						]
+						
+						# If exactly one cell remains, it must be a mine
+						if len(third_cells) == 1:
+							return [third_cells[0]]  # Return as a list
+		
+		return False
+	
+	def oneTwoCPlusPattern(self, cell: Cell):
+		"""
+		Implements the 1-2C+ pattern.
+		If applicable, return a list of positions for cells to be flagged.
+		Otherwise, return False.
+		
+		Logic:
+		1. The given cell must have a reduced value of 1 (and not be flagged).
+		2. Find a neighboring cell with a reduced value >= 3 (and not flagged).
+		3. Identify shared unexplored cells between the 1 and the N.
+		4. If shared cells are exactly 2, proceed.
+		5. Deduce the remaining unexplored cells adjacent to the N as mines if they match the required mine count.
+		"""
+		# The cell must be a 1 and not flagged
+		if cell.reduced_value != 1 or cell.flagged:
+			return False
+
+		# Iterate through all adjacent cells to find a neighbor with reduced_value >= 3
+		for neighbor_pos in self.getAdjCells(cell.pos):
+			if neighbor_pos in self.explored_cells:
+				neighbor = self.explored_cells[neighbor_pos]
+
+				# Look for a neighboring cell with reduced value >= 3 and not flagged
+				if neighbor.reduced_value >= 3 and not neighbor.flagged:
+					# Find shared unexplored cells between the 1 and the neighbor
+					shared_unexplored = [
+						c for c in self.getAdjUnexplored(cell.pos)
+						if c in self.getAdjUnexplored(neighbor_pos)
+					]
+
+					# Ensure there are exactly 2 shared unexplored cells
+					if len(shared_unexplored) != 2:
+						continue
+
+					# Remaining unexplored cells adjacent only to the neighbor
+					remaining_cells = [
+						c for c in self.getAdjUnexplored(neighbor_pos)
+						if c not in shared_unexplored
+					]
+
+					# Calculate remaining mines required in the remaining_cells
+					# Since Cell A (1) can have at most 1 mine in shared_unexplored
+					remaining_mines = neighbor.reduced_value - 1
+
+					# If the number of remaining cells matches the remaining mines, flag them
+					if len(remaining_cells) == remaining_mines and remaining_mines > 0:
+						return remaining_cells  # Already a list
+		
+		return False
