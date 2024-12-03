@@ -269,19 +269,27 @@ class MyAI( AI ):
 
 			# 2 will cover 1-1 and h1, 3 will cover T1, 4 will cover extra cases
 			for i in range(2, 5):
-				uncov = self.generalPattern(cell, i)
+				uncov = self.generalPattern(cell, i, 1)
 				if uncov:
 					for x in uncov:
 						self.priority_queue.push(Cell(x))
 
 					return
+					
+			#t3
+			third = self.generalPattern(cell, 3, 2)
+			if third:
+				for x in third:
+					self.priority_queue.push(Cell(x))
+
+				return
 
 			second = self.holeThreePattern(cell)
 			if second:
 				for x in second:
 					self.priority_queue.push(Cell(x))
 
-				return
+				
 
 		return self.travelQueue(_handlepatterns)
 	
@@ -355,9 +363,9 @@ class MyAI( AI ):
 	PATTERNS
 	'''
 	
-	def generalPattern(self, cell : Cell, amount) -> bool | list[tuple]:
+	def generalPattern(self, cell : Cell, amount, reduction) -> bool | list[tuple]:
 		'''
-		If the given position follows a 1-1 / 1-1R / 1-1+ / H1 / H2 / T1 pattern, return a list of the positions cells that can be uncovered. 
+		If the given position follows a 1-1 / 1-1R / 1-1+ / H1 / H2 / T1 / T2 / T3/ T5 pattern, return a list of the positions cells that can be uncovered. 
 		Otherwise, return False.
 		'''
 		# The left one is touching 2 cells. the right one is also touching those two cells. therefore we can open the third cell
@@ -365,7 +373,7 @@ class MyAI( AI ):
 		# 1 1 
 
 		def checkOne(cell : Cell):
-			return cell.reduced_value == 1 and not cell.flagged
+			return cell.reduced_value == reduction and not cell.flagged
 		
 		pos = cell.pos
 		#cell value needs to be a one or needs to reduce to one
