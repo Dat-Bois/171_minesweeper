@@ -17,7 +17,7 @@ from Action import Action
 
 import heapq
 import random
-from typing import Dict, Tuple, TypeVar, Generic, Any, List
+from typing import Dict, Tuple, TypeVar, Generic, Any
 
 
 UNCOVER = AI.Action.UNCOVER
@@ -184,7 +184,7 @@ class MyAI( AI ):
 					flagged.append(cell)
 		return flagged
 	
-	def respondToAction(self, cell : Cell) -> Action | str | None:
+	def respondToAction(self, cell : Cell):
 		# If the cell value is -2 it needs to be flagged
 		if cell.value == -2:
 			self.pos = cell.pos
@@ -261,56 +261,49 @@ class MyAI( AI ):
 
 		return self.travelQueue(_basecase)
 	
+	'''
 	def handlePatterns(self):
 		# Now go through the priority queue and check if we can apply any patterns.
 		# This is the more complex case where we have to apply patterns.
 		def _handlepatterns(cell : Cell):
 			# 1-1, 1-1R
-			result = self.oneOnePattern(cell)
-			if result:
-				self.priority_queue.push(Cell(result))
+			uncov = self.oneOnePattern(cell)
+			if uncov:
+				self.priority_queue.push(Cell(uncov))
+
+		return self.travelQueue(_handlepatterns)
+	'''
+	
+	def handlePatterns(self):
+		"""
+		Apply patterns like 1-2C and 1-2C+ and return corresponding actions.
+		"""
+		for cell in list(self.priority_queue.queue):
+			# Apply 1-2C pattern
 			result = self.oneTwoCPattern(cell)
 			if result:
 				for pos in result:
-					self.priority_queue.push(Cell(pos, -2))
-			result = self.oneTwoCPlusPattern(cell)
-			if result:
-				for pos in result:
-					self.priority_queue.push(Cell(pos, -2))
-
-		return self.travelQueue(_handlepatterns)
-	
-	# def handlePatterns(self):
-	# 	"""
-	# 	Apply patterns like 1-2C and 1-2C+ and return corresponding actions.
-	# 	"""
-	# 	for cell in list(self.priority_queue.queue):
-	# 		# Apply 1-2C pattern
-	# 		result = self.oneTwoCPattern(cell)
-	# 		if result:
-	# 			for pos in result:
-	# 				return Action(FLAG, pos[0], pos[1])
+					return Action(FLAG, pos[0], pos[1])
 			
-	# 		# Apply 1-2C+ pattern
-	# 		result_plus = self.oneTwoCPlusPattern(cell)
-	# 		if result_plus:
-	# 			for pos in result_plus:
-	# 				return Action(FLAG, pos[0], pos[1])
+			# Apply 1-2C+ pattern
+			result_plus = self.oneTwoCPlusPattern(cell)
+			if result_plus:
+				for pos in result_plus:
+					return Action(FLAG, pos[0], pos[1])
 		
-	# 	return None 
+		return None 
 
-	def handleGuess(self, debug=False):
+	def handleGuess(self):
 		# If we are here, then we are in a unlucky situation where we have to guess.
 		# Pick the lowest number cell with unexplored values and uncover one if its adjacent cells.
-		if not debug:
-			local : List[Cell] = list(self.priority_queue.queue)
-			local = sorted(local, key=lambda x: x.value)
-			for cell in local:
-				if len(self.getAdjUnexplored(cell.pos)) > 0:
-					adj = self.getAdjUnexplored(cell.pos)
-					choice = random.choice(adj)
-					self.pos = choice
-					return Action(UNCOVER, choice[0], choice[1])
+		local = list(self.priority_queue.queue)
+		local = sorted(local, key=lambda x: x.value)
+		for cell in local:
+			if len(self.getAdjUnexplored(cell.pos)) > 0:
+				adj = self.getAdjUnexplored(cell.pos)
+				choice = random.choice(adj)
+				self.pos = choice
+				return Action(UNCOVER, choice[0], choice[1])
 		return Action(LEAVE)
 
 	def getAction(self, number: int) -> Action:
@@ -363,12 +356,12 @@ class MyAI( AI ):
 		if action: return action
 		self.priority_queue.reset()
 
-		return self.handleGuess(debug=True)
+		return self.handleGuess()
 
 	'''
 	PATTERNS
 	'''
-	def oneOnePattern(self, cell : Cell) -> bool | tuple:
+	def oneOnePattern(self, cell : Cell):
 		'''
 		If the given position follows a 1-1 / 1-1R pattern, return the position of the cell that can be uncovered. 
 		Otherwise, return False.
@@ -404,7 +397,7 @@ class MyAI( AI ):
 						if target[0] == targetpos[0] or target[1] == targetpos[1]:
 							return target
 
-	def oneTwoCPattern(self, cell: Cell) -> bool | Tuple[int, int]:
+	def oneTwoCPattern(self, cell: Cell):
 		"""
 		Implements the 1-2C pattern. If applicable, return the position of the flagged cell.
 		Otherwise, return False.
@@ -416,47 +409,38 @@ class MyAI( AI ):
 		4. If shared cells are fewer than or equal to the number allowed by the 1, proceed.
 		5. Deduce the remaining unexplored cell(s) adjacent to the 2 as potential mines.
 		"""
-		pos = cell.pos
-		
 		# The cell must be a 1 and not flagged
 		if cell.reduced_value != 1 or cell.flagged:
 			return False
 
-		# Get adjacent cells
-		adj_cells = self.getAdjCells(pos)
-		
-		for neighbor_pos in adj_cells:
+		# Check adjacent cells for a "2"
+		for neighbor_pos in self.getAdjCells(cell.pos):
 			if neighbor_pos in self.explored_cells:
 				neighbor = self.explored_cells[neighbor_pos]
 				
-				# Look for a neighboring cell with a reduced value of 2
+				# Look for a neighboring cell with reduced value 2
 				if neighbor.reduced_value == 2 and not neighbor.flagged:
-					# Find shared unexplored cells between the 1 and the 2
+					# Find shared unexplored cells
 					shared_unexplored = [
-						c for c in self.getAdjUnexplored(pos)
+						c for c in self.getAdjUnexplored(cell.pos)
 						if c in self.getAdjUnexplored(neighbor_pos)
 					]
 					
-					# Ensure there are shared cells to form a valid pattern
-					if not shared_unexplored:
-						continue
-					
-					# Validate the shared cells count relative to the "1" cell
-					if len(shared_unexplored) <= cell.reduced_value:
+					# Verify shared unexplored cells
+					if len(shared_unexplored) == 2:
 						# Remaining unexplored cells adjacent to the "2"
 						third_cells = [
 							c for c in self.getAdjUnexplored(neighbor_pos)
 							if c not in shared_unexplored
 						]
 						
-						# If exactly one remaining mine is needed, flag the third cell
-						remaining_mines = neighbor.reduced_value - len(shared_unexplored)
-						if remaining_mines == 1 and len(third_cells) == 1:
-							print("1-2C pattern found")
+						# If exactly one cell remains, it must be a mine
+						if len(third_cells) == 1:
 							return third_cells[0]
+		
 		return False
 	
-	def oneTwoCPlusPattern(self, cell: Cell) -> bool | list[Tuple[int, int]]:
+	def oneTwoCPlusPattern(self, cell: Cell):
 		"""
 		Implements the 1-2C+ pattern.
 		If applicable, return a list of positions for cells to be flagged.
@@ -466,45 +450,47 @@ class MyAI( AI ):
 		1. The given cell must have a reduced value of 1 (and not be flagged).
 		2. Find a neighboring cell with a reduced value >= 3 (and not flagged).
 		3. Identify shared unexplored cells between the 1 and the N.
-		4. If shared cells are fewer than or equal to the number allowed by the 1, proceed.
-		5. Deduce the remaining unexplored cells adjacent to the N as mines.
+		4. If shared cells are exactly 2, proceed.
+		5. Deduce the remaining unexplored cells adjacent to the N as mines if they match the required mine count.
 		"""
-		pos = cell.pos
-		
 		# The cell must be a 1 and not flagged
 		if cell.reduced_value != 1 or cell.flagged:
 			return False
 
-		# Get adjacent cells
-		adj_cells = self.getAdjCells(pos)
-		
-		for neighbor_pos in adj_cells:
+		# Iterate through all adjacent cells to find a neighbor with reduced_value >= 3
+		for neighbor_pos in self.getAdjCells(cell.pos):
 			if neighbor_pos in self.explored_cells:
 				neighbor = self.explored_cells[neighbor_pos]
-				
-				# Look for a neighboring cell with a reduced value >= 3
+
+				# Look for a neighboring cell with reduced value >= 3 and not flagged
 				if neighbor.reduced_value >= 3 and not neighbor.flagged:
-					# Find shared unexplored cells between the 1 and the N
-					shared_unexplored = set(self.getAdjUnexplored(pos)).intersection(set(self.getAdjUnexplored(neighbor_pos)))
-					
-					# Ensure there are shared cells to form a valid pattern
-					if not shared_unexplored:
+					# Find shared unexplored cells between the 1 and the neighbor
+					shared_unexplored = [
+						c for c in self.getAdjUnexplored(cell.pos)
+						if c in self.getAdjUnexplored(neighbor_pos)
+					]
+
+					# Ensure there are exactly 2 shared unexplored cells
+					if len(shared_unexplored) != 2:
 						continue
-					
-					# Validate the shared cells count relative to the "1" cell
-					if len(shared_unexplored) <= cell.reduced_value:
-						# Remaining unexplored cells adjacent to the "N"
-						remaining_cells = set(self.getAdjUnexplored(neighbor_pos)) - shared_unexplored
-						
-						# Calculate remaining mines required
-						remaining_mines = neighbor.reduced_value - len(shared_unexplored)
-						
-						# Ensure remaining_mines is positive and does not exceed remaining_cells
-						if remaining_mines > 0 and len(remaining_cells) == remaining_mines:
-							print("1-2C+ pattern found")
-							return list(remaining_cells)  # Return all cells to be flagged
+
+					# Remaining unexplored cells adjacent only to the neighbor
+					remaining_cells = [
+						c for c in self.getAdjUnexplored(neighbor_pos)
+						if c not in shared_unexplored
+					]
+
+					# Calculate remaining mines required in the remaining_cells
+					# Since Cell A (1) can have at most 1 mine in shared_unexplored
+					remaining_mines = neighbor.reduced_value - 1
+
+					# If the number of remaining cells matches the remaining mines, flag them
+					if len(remaining_cells) == remaining_mines and remaining_mines > 0:
+						return remaining_cells
+
 		return False
 
+"""
 if __name__ == '__main__':
 	# test = MyAI(5, 5, 5, 1, 1)
 	# print(test.getAdjCells((2, 2)))
@@ -516,3 +502,64 @@ if __name__ == '__main__':
 	pq.push(Cell((1, 4), -1))
 	pq.push(Cell((1, 4), -2))
 	print(pq)
+"""
+
+if __name__ == '__main__':
+    def test_oneTwoCPattern():
+        """
+        Test the 1-2C pattern implementation.
+        """
+        ai = MyAI(5, 5, 5, 1, 1)
+
+        # Setup a 1-2C pattern on the board:
+        # 1 2 ?
+        # . ? ?
+        ai.explored_cells = {
+            (1, 1): Cell((1, 1), 1),
+            (1, 2): Cell((1, 2), 2)
+        }
+        ai.priority_queue.push(ai.explored_cells[(1, 1)])
+        ai.priority_queue.push(ai.explored_cells[(1, 2)])
+
+        ai.getAdjUnexplored = lambda pos: {
+            (1, 1): [(2, 1), (2, 2)],
+            (1, 2): [(2, 1), (2, 2), (3, 2)]
+        }.get(pos, [])
+
+        result = ai.oneTwoCPattern(ai.explored_cells[(1, 1)])
+        expected = (3, 2)  
+        
+        assert result == expected, f"Expected {expected}, got {result}"
+        print("Test passed: 1-2C pattern correctly identified.")
+
+    def test_oneTwoCPlusPattern():
+        """
+        Test the 1-2C+ pattern implementation.
+        """
+        ai = MyAI(5, 5, 5, 1, 1)
+
+        # Setup a 1-2C+ pattern on the board:
+        # 1 4 ?
+        # . ? ?
+        ai.explored_cells = {
+            (1, 1): Cell((1, 1), 1),
+            (1, 2): Cell((1, 2), 4)
+        }
+        ai.priority_queue.push(ai.explored_cells[(1, 1)])
+        ai.priority_queue.push(ai.explored_cells[(1, 2)])
+
+        ai.getAdjUnexplored = lambda pos: {
+            (1, 1): [(2, 1), (2, 2)],
+            (1, 2): [(2, 1), (2, 2), (2, 3), (3, 3), (3, 2)]
+        }.get(pos, [])
+
+        result = ai.oneTwoCPlusPattern(ai.explored_cells[(1, 1)])
+        expected = [(2, 3), (3, 3), (3, 2)]  
+        result = result or []  
+
+        assert sorted(result) == sorted(expected), f"Expected {expected}, got {result}"
+        print("Test passed: 1-2C+ pattern correctly identified.")
+
+    # Run the tests
+    test_oneTwoCPattern()
+    test_oneTwoCPlusPattern()
