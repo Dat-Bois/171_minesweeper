@@ -18,7 +18,16 @@ from Action import Action
 import heapq
 import random
 from typing import Dict, List, Tuple, TypeVar, Generic, Any
+import time
 
+import cProfile
+import pstats
+import io
+from pstats import SortKey
+PROFILE = False
+if PROFILE:
+	ob = cProfile.Profile()
+	ob.enable()
 
 UNCOVER = AI.Action.UNCOVER
 FLAG = AI.Action.FLAG
@@ -307,6 +316,13 @@ class MyAI( AI ):
 					choice = random.choice(adj)
 					self.pos = choice
 					return Action(UNCOVER, choice[0], choice[1])
+		if PROFILE:		
+			ob.disable()
+			sec = io.StringIO()
+			sortby = SortKey.CUMULATIVE
+			ps = pstats.Stats(ob, stream=sec).sort_stats(sortby)
+			ps.print_stats()
+			print(sec.getvalue())
 		return Action(LEAVE)
 
 	def getAction(self, number: int) -> Action:
@@ -354,7 +370,7 @@ class MyAI( AI ):
 		action = self.baseCase()
 		if action: return action
 		self.priority_queue.reset()
-
+		
 		action = self.handlePatterns()
 		if action: return action
 		self.priority_queue.reset()
