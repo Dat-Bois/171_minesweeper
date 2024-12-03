@@ -271,10 +271,14 @@ class MyAI( AI ):
 				for x in uncov:
 					self.priority_queue.push(Cell(x))
 
+				return
+
 			second = self.holeThreePattern(cell)
 			if second:
 				for x in second:
 					self.priority_queue.push(Cell(x))
+
+				return
 
 		return self.travelQueue(_handlepatterns)
 	
@@ -342,7 +346,6 @@ class MyAI( AI ):
 		self.priority_queue.reset()
 
 		return self.handleGuess()
-		# return Action(LEAVE)
 
 	'''
 	PATTERNS
