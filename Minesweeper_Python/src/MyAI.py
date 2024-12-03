@@ -280,17 +280,18 @@ class MyAI( AI ):
 
 		return self.travelQueue(_handlepatterns)
 	
-	def handleGuess(self):
+	def handleGuess(self, debug=False):
 		# If we are here, then we are in a unlucky situation where we have to guess.
 		# Pick the lowest number cell with unexplored values and uncover one if its adjacent cells.
-		local : List[Cell] = list(self.priority_queue.queue)
-		local = sorted(local, key=lambda x: x.value)
-		for cell in local:
-			if len(self.getAdjUnexplored(cell.pos)) > 0:
-				adj = self.getAdjUnexplored(cell.pos)
-				choice = random.choice(adj)
-				self.pos = choice
-				return Action(UNCOVER, choice[0], choice[1])
+		if not debug:
+			local : List[Cell] = list(self.priority_queue.queue)
+			local = sorted(local, key=lambda x: x.value)
+			for cell in local:
+				if len(self.getAdjUnexplored(cell.pos)) > 0:
+					adj = self.getAdjUnexplored(cell.pos)
+					choice = random.choice(adj)
+					self.pos = choice
+					return Action(UNCOVER, choice[0], choice[1])
 		return Action(LEAVE)
 
 	def getAction(self, number: int) -> Action:
@@ -348,9 +349,10 @@ class MyAI( AI ):
 	'''
 	PATTERNS
 	'''
-	def oneOnePattern(self, cell : Cell):
+	
+	def generalPattern(self, cell : Cell, amount, reduction) -> bool | list[tuple]:
 		'''
-		If the given position follows a 1-1 / 1-1R pattern, return the position of the cell that can be uncovered. 
+		If the given position follows a 1-1 / 1-1R / 1-1+ / H1 / H2 / T1 / T2 / T3/ T5 pattern, return a list of the positions cells that can be uncovered. 
 		Otherwise, return False.
 		'''
 		# The left one is touching 2 cells. the right one is also touching those two cells. therefore we can open the third cell
@@ -358,28 +360,29 @@ class MyAI( AI ):
 		# 1 1 
 
 		def checkOne(cell : Cell):
-			return cell.reduced_value == 1 and not cell.flagged
-
+			return cell.reduced_value == reduction and not cell.flagged
+		
 		pos = cell.pos
 		#cell value needs to be a one or needs to reduce to one
 		if not checkOne(cell):
 			return False		
 		#there has to be 2 unexplored cells in this pattern
-		if len(self.getAdjUnexplored(pos)) != 2:
+		if len(self.getAdjUnexplored(pos)) != amount:
 			return False
 		
 		adjcells = self.getAdjCells(pos) 
+		total = []
 		for cell in adjcells:
-			#find a cell with value one that is in the same x or y as our current cell
-			if cell in self.explored_cells and checkOne(self.explored_cells[cell]) and (cell[0] == pos[0] or cell[1] == pos[1]):
+			#find a cell with value one 
+			if cell in self.explored_cells and checkOne(self.explored_cells[cell]): 
 				targetUnxAdjCells = self.getAdjUnexplored(cell)
 				ogUnxAdjCells = self.getAdjUnexplored(pos)
-				#they need to share 2 cells
-				if len(set(targetUnxAdjCells).intersection(set(ogUnxAdjCells))) != 2:
+
+				#they need to share x cells
+				if len(set(targetUnxAdjCells).intersection(set(ogUnxAdjCells))) != amount:
 					continue
+
 				for target in targetUnxAdjCells:
-					targetpos = ogUnxAdjCells[0]
-					#find possible third cells that are lined up
 					if target not in ogUnxAdjCells:
 						if target[0] == targetpos[0] or target[1] == targetpos[1]:
 							return target
