@@ -293,17 +293,18 @@ class MyAI( AI ):
 
 		return self.travelQueue(_handlepatterns)
 	
-	def handleGuess(self):
+	def handleGuess(self, debug=False):
 		# If we are here, then we are in a unlucky situation where we have to guess.
 		# Pick the lowest number cell with unexplored values and uncover one if its adjacent cells.
-		local = list(self.priority_queue.queue)
-		local = sorted(local, key=lambda x: x.value)
-		for cell in local:
-			if len(self.getAdjUnexplored(cell.pos)) > 0:
-				adj = self.getAdjUnexplored(cell.pos)
-				choice = random.choice(adj)
-				self.pos = choice
-				return Action(UNCOVER, choice[0], choice[1])
+		if not debug:
+			local = list(self.priority_queue.queue)
+			local = sorted(local, key=lambda x: x.value)
+			for cell in local:
+				if len(self.getAdjUnexplored(cell.pos)) > 0:
+					adj = self.getAdjUnexplored(cell.pos)
+					choice = random.choice(adj)
+					self.pos = choice
+					return Action(UNCOVER, choice[0], choice[1])
 		return Action(LEAVE)
 
 	def getAction(self, number: int) -> Action:
@@ -357,7 +358,6 @@ class MyAI( AI ):
 		self.priority_queue.reset()
 
 		return self.handleGuess()
-		# return Action(LEAVE)
 
 	'''
 	PATTERNS
