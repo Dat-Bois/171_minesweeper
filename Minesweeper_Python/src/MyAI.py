@@ -266,17 +266,32 @@ class MyAI( AI ):
 		# This is the more complex case where we have to apply patterns.
 		def _handlepatterns(cell : Cell):
 			# 1-1, 1-1R
-			result = self.oneOnePattern(cell)
+			for i in range(2, 5):
+				result = self.generalPattern(cell, i, 1)
+				if result:
+					for pos in result:
+						self.priority_queue.push(Cell(pos))
+					return
+			result = self.generalPattern(cell, 3, 2)
 			if result:
-				self.priority_queue.push(Cell(result))
+				for pos in result:
+					self.priority_queue.push(Cell(pos))
+				return
+			result = self.holeThreePattern(cell)
+			if result:
+				for pos in result:
+					self.priority_queue.push(Cell(pos))
+				return
 			result = self.oneTwoCPattern(cell)
 			if result:
 				for pos in result:
 					self.priority_queue.push(Cell(pos, -2))
+				return
 			result = self.oneTwoCPlusPattern(cell)
 			if result:
 				for pos in result:
 					self.priority_queue.push(Cell(pos, -2))
+				return
 
 		return self.travelQueue(_handlepatterns)
 	
@@ -384,8 +399,42 @@ class MyAI( AI ):
 
 				for target in targetUnxAdjCells:
 					if target not in ogUnxAdjCells:
-						if target[0] == targetpos[0] or target[1] == targetpos[1]:
-							return target
+						total.append(target)
+		return total
+
+	def holeThreePattern(self, cell : Cell):
+
+		def checkOne(cell : Cell):
+			return cell.reduced_value == 1 and not cell.flagged
+		
+		pos = cell.pos
+		#cell value needs to be a one or needs to reduce to one
+		if not checkOne(cell):
+			return False		
+		
+		ogUnxAdjCells = self.getAdjUnexplored(pos)
+
+		#there has to be 2 unexplored cells in this pattern
+		if len(ogUnxAdjCells) != 2:
+			return False
+		
+		total = []
+
+		for unx in ogUnxAdjCells:
+			adjcells = self.getAdjCells(unx) 
+
+			for c in adjcells:
+				if c in self.explored_cells and checkOne(self.explored_cells[c]):
+
+					targetUnxAdjCells = self.getAdjUnexplored(c)
+
+					if len(set(targetUnxAdjCells).intersection(set(ogUnxAdjCells))) != 2:
+						continue
+
+					for target in targetUnxAdjCells:
+						if target not in ogUnxAdjCells:
+							total.append(target)
+		return set(total)
 
 	def oneTwoCPattern(self, cell: Cell):
 		"""
