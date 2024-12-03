@@ -282,14 +282,24 @@ class MyAI( AI ):
 			# Apply 1-2C pattern
 			result = self.oneTwoCPattern(cell)
 			if result:
-				for pos in result:
-					return Action(FLAG, pos[0], pos[1])
+				if isinstance(result, tuple):
+					# Single position tuple
+					return Action(FLAG, result[0], result[1])
+				elif isinstance(result, list):
+					# List of position tuples
+					for pos in result:
+						return Action(FLAG, pos[0], pos[1])
 			
 			# Apply 1-2C+ pattern
 			result_plus = self.oneTwoCPlusPattern(cell)
 			if result_plus:
-				for pos in result_plus:
-					return Action(FLAG, pos[0], pos[1])
+				if isinstance(result_plus, tuple):
+					# Single position tuple
+					return Action(FLAG, result_plus[0], result_plus[1])
+				elif isinstance(result_plus, list):
+					# List of position tuples
+					for pos in result_plus:
+						return Action(FLAG, pos[0], pos[1])
 		
 		return None 
 
@@ -490,7 +500,6 @@ class MyAI( AI ):
 
 		return False
 
-"""
 if __name__ == '__main__':
 	# test = MyAI(5, 5, 5, 1, 1)
 	# print(test.getAdjCells((2, 2)))
@@ -502,13 +511,11 @@ if __name__ == '__main__':
 	pq.push(Cell((1, 4), -1))
 	pq.push(Cell((1, 4), -2))
 	print(pq)
-"""
 
+"""
 if __name__ == '__main__':
     def test_oneTwoCPattern():
-        """
-        Test the 1-2C pattern implementation.
-        """
+        #Test the 1-2C pattern implementation.
         ai = MyAI(5, 5, 5, 1, 1)
 
         # Setup a 1-2C pattern on the board:
@@ -533,9 +540,7 @@ if __name__ == '__main__':
         print("Test passed: 1-2C pattern correctly identified.")
 
     def test_oneTwoCPlusPattern():
-        """
-        Test the 1-2C+ pattern implementation.
-        """
+        #Test the 1-2C+ pattern implementation.
         ai = MyAI(5, 5, 5, 1, 1)
 
         # Setup a 1-2C+ pattern on the board:
@@ -563,3 +568,4 @@ if __name__ == '__main__':
     # Run the tests
     test_oneTwoCPattern()
     test_oneTwoCPlusPattern()
+"""
