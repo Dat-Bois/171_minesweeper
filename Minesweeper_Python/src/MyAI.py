@@ -1,17 +1,3 @@
-# ==============================CS-199==================================
-# FILE:			MyAI.py
-#
-# AUTHOR: 		Justin Chung
-#
-# DESCRIPTION:	This file contains the MyAI class. You will implement your
-#				agent in this file. You will write the 'getAction' function,
-#				the constructor, and any additional helper functions.
-#
-# NOTES: 		- MyAI inherits from the abstract AI class in AI.py.
-#
-#				- DO NOT MAKE CHANGES TO THIS FILE.
-# ==============================CS-199==================================
-
 from AI import AI
 from Action import Action
 
@@ -24,7 +10,7 @@ import cProfile
 import pstats
 import io
 from pstats import SortKey
-PROFILE = False
+PROFILE = True
 if PROFILE:
 	ob = cProfile.Profile()
 	ob.enable()
@@ -139,13 +125,15 @@ class MyAI( AI ):
 		self.pos = (startX, startY)
 
 		self.flags = 0
-
+		self._adj_cells = {}
 		
 	def getAdjCells(self, pos: tuple) -> list:
 		'''
 		Returns a list of adjacent cells to the given position.
 		The cells are 0-indexed.
 		'''
+		if pos in self._adj_cells:
+			return self._adj_cells[pos]
 		row, col = pos
 		adj_cells = []
 		for i in range(-1, 2):
@@ -154,6 +142,7 @@ class MyAI( AI ):
 					continue
 				if 0 <= row + i < self.grid_dim[1] and 0 <= col + j < self.grid_dim[0]:
 					adj_cells.append((row + i, col + j))
+		self._adj_cells[pos] = adj_cells
 		return adj_cells
 		
 	def getAdjUnexplored(self, pos: tuple) -> list:
@@ -258,14 +247,14 @@ class MyAI( AI ):
 			# If a cell is explored and unexplored cells are equal to the number 
 			# of mines, flag all unexplored cells
 			adj_cells = self.getAdjUnexplored(cell.pos)
-			# flagged_cells = self.getAdjFlagged(cell.pos)
-			if cell.reduced_value == len(adj_cells) and len(adj_cells) > 0:
+			adj_size = len(adj_cells)
+			if cell.reduced_value == adj_size and adj_size > 0:
 				for adj_cell in adj_cells:
 					self.priority_queue.push(Cell(adj_cell, -2))
 			# If a cell is explored and the number of flags adjacent to the cell is equal 
 			# to the number of mines, uncover all unexplored cells
 			if cell.reduced_value == 0:
-				for adj_cell in self.getAdjUnexplored(cell.pos):
+				for adj_cell in adj_cells:
 					self.priority_queue.push(Cell(adj_cell))
 
 		return self.travelQueue(_basecase)
@@ -309,7 +298,7 @@ class MyAI( AI ):
 		# Pick the lowest number cell with unexplored values and uncover one if its adjacent cells.
 		if not debug:
 			local : List[Cell] = list(self.priority_queue.queue)
-			local = sorted(local, key=lambda x: x.value)
+			local = sorted(local, key=lambda x: x.reduced_value)
 			for cell in local:
 				if len(self.getAdjUnexplored(cell.pos)) > 0:
 					adj = self.getAdjUnexplored(cell.pos)
