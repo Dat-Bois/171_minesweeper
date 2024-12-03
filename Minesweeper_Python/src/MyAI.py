@@ -271,6 +271,11 @@ class MyAI( AI ):
 				for x in uncov:
 					self.priority_queue.push(Cell(x))
 
+			second = self.holeThreePattern(cell)
+			if second:
+				for x in second:
+					self.priority_queue.push(Cell(x))
+
 		return self.travelQueue(_handlepatterns)
 	
 	def handleGuess(self):
@@ -337,13 +342,14 @@ class MyAI( AI ):
 		self.priority_queue.reset()
 
 		return self.handleGuess()
+		# return Action(LEAVE)
 
 	'''
 	PATTERNS
 	'''
 	def oneOnePattern(self, cell : Cell) -> bool | list[tuple]:
 		'''
-		If the given position follows a 1-1 / 1-1R / 1-1+ pattern, return a list of the positions cells that can be uncovered. 
+		If the given position follows a 1-1 / 1-1R / 1-1+ / H1 / H2 pattern, return a list of the positions cells that can be uncovered. 
 		Otherwise, return False.
 		'''
 		# The left one is touching 2 cells. the right one is also touching those two cells. therefore we can open the third cell
@@ -362,6 +368,7 @@ class MyAI( AI ):
 			return False
 		
 		adjcells = self.getAdjCells(pos) 
+		total = []
 		for cell in adjcells:
 			#find a cell with value one that is in the same x or y as our current cell
 			if cell in self.explored_cells and checkOne(self.explored_cells[cell]) and (cell[0] == pos[0] or cell[1] == pos[1]):
@@ -371,15 +378,50 @@ class MyAI( AI ):
 				if len(set(targetUnxAdjCells).intersection(set(ogUnxAdjCells))) != 2:
 					continue
 
-				total = []
 				for target in targetUnxAdjCells:
-					targetpos = ogUnxAdjCells[0]
+					# targetpos = ogUnxAdjCells[0]
 					#find possible third cells that are lined up
 					if target not in ogUnxAdjCells:
 						# if target[0] == targetpos[0] or target[1] == targetpos[1]:
 						# 	return target
 						total.append(target)
-				return total
+		return total
+	
+	def holeThreePattern(self, cell):
+		def checkOne(cell : Cell):
+			return cell.reduced_value == 1 and not cell.flagged
+		
+		pos = cell.pos
+		#cell value needs to be a one or needs to reduce to one
+		if not checkOne(cell):
+			return False		
+		
+		ogUnxAdjCells = self.getAdjUnexplored(pos)
+
+		#there has to be 2 unexplored cells in this pattern
+		if len(ogUnxAdjCells) != 2:
+			return False
+		
+		total = []
+
+		for unx in ogUnxAdjCells:
+			adjcells = self.getAdjCells(unx) 
+
+			for c in adjcells:
+				if c in self.explored_cells and checkOne(self.explored_cells[c]):
+
+					targetUnxAdjCells = self.getAdjUnexplored(c)
+
+					if len(set(targetUnxAdjCells).intersection(set(ogUnxAdjCells))) != 2:
+						continue
+
+					for target in targetUnxAdjCells:
+						if target not in ogUnxAdjCells:
+							total.append(target)
+		return set(total)
+
+
+
 			
 
 			
