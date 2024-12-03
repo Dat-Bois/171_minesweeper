@@ -274,6 +274,35 @@ class MyAI( AI ):
 		return self.travelQueue(_handlepatterns)
 	'''
 	
+	# def handlePatterns(self):
+	# 	"""
+	# 	Apply patterns like 1-2C and 1-2C+ and return corresponding actions.
+	# 	"""
+	# 	for cell in list(self.priority_queue.queue):
+	# 		# Apply 1-2C pattern
+	# 		result = self.oneTwoCPattern(cell)
+	# 		if result:
+	# 			if isinstance(result, tuple):
+	# 				# Single position tuple
+	# 				return Action(FLAG, result[0], result[1])
+	# 			elif isinstance(result, list):
+	# 				# List of position tuples
+	# 				for pos in result:
+	# 					return Action(FLAG, pos[0], pos[1])
+			
+	# 		# Apply 1-2C+ pattern
+	# 		result_plus = self.oneTwoCPlusPattern(cell)
+	# 		if result_plus:
+	# 			if isinstance(result_plus, tuple):
+	# 				# Single position tuple
+	# 				return Action(FLAG, result_plus[0], result_plus[1])
+	# 			elif isinstance(result_plus, list):
+	# 				# List of position tuples
+	# 				for pos in result_plus:
+	# 					return Action(FLAG, pos[0], pos[1])
+		
+	# 	return None 
+
 	def handlePatterns(self):
 		"""
 		Apply patterns like 1-2C and 1-2C+ and return corresponding actions.
@@ -282,27 +311,19 @@ class MyAI( AI ):
 			# Apply 1-2C pattern
 			result = self.oneTwoCPattern(cell)
 			if result:
-				if isinstance(result, tuple):
-					# Single position tuple
-					return Action(FLAG, result[0], result[1])
-				elif isinstance(result, list):
-					# List of position tuples
-					for pos in result:
-						return Action(FLAG, pos[0], pos[1])
+				for pos in result:
+					print(f"Flagging cell at position: {pos}")  # Debug statement
+					return Action(FLAG, pos[0], pos[1])
 			
 			# Apply 1-2C+ pattern
 			result_plus = self.oneTwoCPlusPattern(cell)
 			if result_plus:
-				if isinstance(result_plus, tuple):
-					# Single position tuple
-					return Action(FLAG, result_plus[0], result_plus[1])
-				elif isinstance(result_plus, list):
-					# List of position tuples
-					for pos in result_plus:
-						return Action(FLAG, pos[0], pos[1])
+				for pos in result_plus:
+					print(f"Flagging cell at position: {pos}")  # Debug statement
+					return Action(FLAG, pos[0], pos[1])
 		
 		return None 
-
+	
 	def handleGuess(self):
 		# If we are here, then we are in a unlucky situation where we have to guess.
 		# Pick the lowest number cell with unexplored values and uncover one if its adjacent cells.
@@ -446,7 +467,7 @@ class MyAI( AI ):
 						
 						# If exactly one cell remains, it must be a mine
 						if len(third_cells) == 1:
-							return third_cells[0]
+							return [third_cells[0]]  # Return as a list
 		
 		return False
 	
@@ -496,8 +517,8 @@ class MyAI( AI ):
 
 					# If the number of remaining cells matches the remaining mines, flag them
 					if len(remaining_cells) == remaining_mines and remaining_mines > 0:
-						return remaining_cells
-
+						return remaining_cells  # Already a list
+		
 		return False
 
 if __name__ == '__main__':
