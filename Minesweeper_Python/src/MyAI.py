@@ -10,7 +10,7 @@ import cProfile
 import pstats
 import io
 from pstats import SortKey
-PROFILE = True
+PROFILE = False
 if PROFILE:
 	ob = cProfile.Profile()
 	ob.enable()
