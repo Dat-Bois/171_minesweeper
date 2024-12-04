@@ -33,7 +33,7 @@ class Cell:
 		if self.value > 0 and not self.flagged:
 			self.reduced_value -= 1
 
-	def __lt__(self, other):
+	def __lt__(self, other : 'Cell'):
 		# Values less than 0 get popped first
 		# Then the larger values get popped if all > 0
 		# So it would be -2, -1, 4, 3, 2, 1
@@ -45,12 +45,12 @@ class Cell:
 
         # Step 2: When both are negative, order ascending (-2 before -1)
         # or when both are positive, order descending (4 before 3).
-		if self.value < 0:
+		if self.reduced_value < 0:
 			return self.reduced_value < other.reduced_value
 		else:
 			return self.reduced_value > other.reduced_value
 
-	def __eq__(self, other):
+	def __eq__(self, other : 'Cell'):
 		if isinstance(other, tuple):
 			return self.pos == other
 		return self.pos == other.pos
@@ -71,6 +71,7 @@ class PriorityQueue(Generic[T]):
 	def __init__(self):
 		self.queue = []
 		self.queue2 = []
+		self.entry_table = {}
 	
 	def reset(self):
 		self.queue.extend(self.queue2)
@@ -80,6 +81,7 @@ class PriorityQueue(Generic[T]):
 	def push(self, item: T):
 		self.remove(item)
 		heapq.heappush(self.queue, item)
+		self.entry_table[item] = True
 
 	def pop(self) -> T:
 		if self.__len__() == 0:
@@ -96,12 +98,14 @@ class PriorityQueue(Generic[T]):
 		return self.queue[0]
 
 	def remove(self, item: T):
-		if item in self.queue:
-			self.queue.remove(item)
-			heapq.heapify(self.queue)
-		elif item in self.queue2:
-			self.queue2.remove(item)
-			heapq.heapify(self.queue2)
+		if item in self.entry_table:
+			del self.entry_table[item]
+			if item in self.queue:
+				self.queue.remove(item)
+				heapq.heapify(self.queue)
+			elif item in self.queue2:
+				self.queue2.remove(item)
+				heapq.heapify(self.queue2)
 
 	def __len__(self):
 		return len(self.queue)
@@ -113,7 +117,7 @@ class PriorityQueue(Generic[T]):
 		return self.__repr__()
 	
 	def __contains__(self, item: T):
-		return item in self.queue or item in self.queue2
+		return item in self.entry_table
 
 class MyAI( AI ):
 
